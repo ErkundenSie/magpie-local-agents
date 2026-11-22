@@ -107,7 +107,7 @@ CLI 自己报告的配额或限流（usage limit、rate limit、quota、HTTP 429
 
 | CLI | 网关会话的约束 |
 | --- | --- |
-| Codex | 只读沙箱、`approvalPolicy: never`、临时线程；关闭 shell 工具、hooks、plugins、apps 与联网搜索；你自己的 MCP 服务器逐个替换成「不提供任何工具」的空壳启动器，只保留调用方工具那一个，并以 `default_tools_approval_mode = "approve"` 免去审批往返 |
+| Codex | 只读沙箱、`approvalPolicy: never`、临时线程；关闭 shell 工具、hooks、plugins、apps 与联网搜索；你自己的本地 MCP 服务器逐个替换成「不提供任何工具」的空壳启动器，只配了 `url` 的远程服务器则直接禁用，只保留调用方工具那一个，并以 `default_tools_approval_mode = "approve"` 免去审批往返 |
 | Grok Build | 专用 agent profile：内置工具全部剥离，`inheritMcp: false` 不继承全局 MCP/技能/插件；只有调用方声明了工具时才保留 MCP 元工具 |
 | Antigravity CLI | `--settings` 注入 `permissions.deny`，默认禁止命令、读写与联网；调用方未声明工具时不列入 `mcp(*)`，并 `toolPermission: strict` |
 | Claude Code | `session/new` 的 `_meta` 设 `tools: []` 关闭内置工具；调用方声明工具时不再用 `disallowedTools: ['*']`，以免连它们的 MCP 工具一起禁掉 |

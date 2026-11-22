@@ -109,7 +109,7 @@ A gateway caller is a text client, not an interactive coding agent, so each requ
 
 | CLI | Constraints in a gateway session |
 | --- | --- |
-| Codex | Read-only sandbox, `approvalPolicy: never`, ephemeral thread; shell tool, hooks, plugins, apps and web search disabled; each of your own MCP servers replaced by a stub that offers no tools, keeping only the caller's tool server, with `default_tools_approval_mode = "approve"` to avoid an approval round-trip |
+| Codex | Read-only sandbox, `approvalPolicy: never`, ephemeral thread; shell tool, hooks, plugins, apps and web search disabled; each local MCP server replaced by a stub that offers no tools, and each remote `url` server disabled, keeping only the caller's tool server, with `default_tools_approval_mode = "approve"` to avoid an approval round-trip |
 | Grok Build | Dedicated agent profile: built-ins stripped, `inheritMcp: false` so no global MCP servers, skills or plugins; the MCP meta-tools stay only when the caller declares tools |
 | Antigravity CLI | `--settings` injects `permissions.deny`, denying commands, reads/writes and network by default; `mcp(*)` is left out unless the caller declares tools, with `toolPermission: strict` |
 | Claude Code | `session/new` `_meta` sets `tools: []` to drop built-ins; `disallowedTools: ['*']` is not used when the caller declares tools, so their MCP tools survive |
