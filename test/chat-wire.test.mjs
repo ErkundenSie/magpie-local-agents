@@ -58,12 +58,46 @@ test('keeps inline images as protocol blocks and marks their place in the transc
   assert.equal(request.images[0].mimeType, 'image/png');
   assert.equal(request.images[0].data, png);
   assert.equal(request.images[0].index, 0);
+  assert.equal(request.images[0].at, 0);
   // The base64 never reaches the prompt text; a stable marker stands in for it.
   assert.ok(!request.prompt.includes(png));
   assert.match(request.prompt, /\[image 1: [0-9a-f]{6}\]/);
-  assert.match(request.prompt, /attached 1 image/);
+  assert.match(request.prompt, /1 image follows/);
   assert.deepEqual(transcript(request).messages[0].content.map((part) => part.text),
     ['What is this?', '[image 1: e42704]', 'Thanks.']);
+});
+
+test('keeps a tool result image with that call and refuses a remote one', () => {
+  const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  const request = parsed({
+    tools: [search],
+    messages: [
+      { role: 'user', content: 'look' },
+      { role: 'assistant', content: null, tool_calls: [
+        { id: 'call_shot', type: 'function', function: { name: 'search', arguments: '{}' } },
+      ] },
+      { role: 'tool', tool_call_id: 'call_shot', content: [
+        { type: 'text', text: 'found' },
+        { type: 'image_url', image_url: { url: `data:image/png;base64,${png}` } },
+        { type: 'text', text: 'see above' },
+      ] },
+    ],
+  });
+  assert.equal(request.images.length, 1);
+  assert.equal(request.images[0].at, 2);
+  assert.equal(request.images[0].data, png);
+  assert.ok(!request.prompt.includes(png));
+  assert.match(request.prompt, /\[image 1: e42704\]/);
+  assert.match(request.prompt, /tool result/);
+  const toolMessage = transcript(request).messages[2];
+  assert.equal(toolMessage.tool_call_id, 'call_shot');
+  assert.deepEqual(toolMessage.content.map((part) => part.text), ['found', '[image 1: e42704]', 'see above']);
+  assert.throws(() => parsed({ messages: [{ role: 'tool', tool_call_id: 'call_shot', content: [
+    { type: 'image_url', image_url: { url: 'https://example.test/shot.png' } },
+  ] }] }), failure(400, /inline data URL/));
+  assert.throws(() => parsed({ messages: [{ role: 'assistant', content: [
+    { type: 'image_url', image_url: { url: `data:image/png;base64,${png}` } },
+  ] }] }), failure(400, /only supports text/));
 });
 
 test('accepts the tool shapes real clients send, including dotted MCP names and null fields', () => {

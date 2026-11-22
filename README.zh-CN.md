@@ -72,9 +72,9 @@ CLI 调用工具时，插件返回标准 `tool_calls` 并**把该 CLI 回合挂�
 
 ### 图片
 
-图片以 data URL 传入：`{"type":"image_url","image_url":{"url":"data:image/png;base64,…"}}`。插件把它作为原生内容交给 CLI：ACP 用 `{type:"image", mimeType, data}`，Codex 用内联 data URL。
+图片以 data URL 放在用户消息或工具结果里：`{"type":"image_url","image_url":{"url":"data:image/png;base64,…"}}`。插件把它作为原生内容交给 CLI：ACP 用 `{type:"image", mimeType, data}`，Codex 用内联 data URL。工具结果里的图片随同一次调用返回，CLI 还停在这次调用里时，按原顺序成为 MCP 的 image 块，不会挂到后面的提示词上。
 
-图片不进入文本提示词，代之以 `[image 1: e42704]` 这样的标记，因此历史匹配仍能区分同一位置的两张不同图片。只接受内联 data URL（PNG、JPEG、WebP、GIF，单张 ≤ 8 MiB）；远程图片 URL 会被拒绝而不代抓——本机不能把调用方的 URL 变成自己的请求，而且 Codex 本身也拒绝远程图片。CLI 未声明支持图片时返回 400，而不是静默丢弃。
+图片不进入文本提示词，代之以 `[image 1: e42704]` 这样的标记，因此历史匹配仍能区分同一位置的两张不同图片。后一轮才出现的图片只随那一轮发送，早先的留在会话里，不再重发。只接受内联 data URL（PNG、JPEG、WebP、GIF，单张 ≤ 8 MiB）；远程图片 URL 会被拒绝而不代抓，插件也不会从磁盘读取图片文件。CLI 未声明支持图片时返回 400，而不是静默丢弃。
 
 ### Token 用量
 

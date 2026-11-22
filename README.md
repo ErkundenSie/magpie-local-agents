@@ -74,9 +74,9 @@ A turn that is already parked waiting for tool results cannot change model or le
 
 ### Images
 
-Send images as data URLs: `{"type":"image_url","image_url":{"url":"data:image/png;base64,…"}}`. The plugin passes them to the CLI as native content: ACP takes `{type:"image", mimeType, data}`, and Codex takes an inline data URL.
+Send images as data URLs on a user message or a tool result: `{"type":"image_url","image_url":{"url":"data:image/png;base64,…"}}`. The plugin passes them to the CLI as native content: ACP takes `{type:"image", mimeType, data}`, and Codex takes an inline data URL. A tool result's images go back with that same call, as MCP image blocks in the order they were sent, while the CLI is still inside the call. They are not attached to a later prompt.
 
-Images never enter the text prompt. A marker such as `[image 1: e42704]` takes their place, so history matching can still tell two different images at the same position apart. Only inline data URLs are accepted (PNG, JPEG, WebP, GIF, up to 8 MiB each); remote image URLs are rejected rather than fetched, because the host must not turn a caller's URL into its own request — and Codex rejects remote images anyway. An agent that does not advertise image support returns 400 instead of silently dropping the image.
+Images never enter the text prompt. A marker such as `[image 1: e42704]` takes their place, so history matching can still tell two different images at the same position apart. A picture that arrives on a later turn is sent with that turn; earlier ones stay in the session and are not sent again. Only inline data URLs are accepted (PNG, JPEG, WebP, GIF, up to 8 MiB each); remote image URLs are rejected rather than fetched, and the plugin does not read image files from disk. An agent that does not advertise image support returns 400 instead of silently dropping the image.
 
 ### Token usage
 

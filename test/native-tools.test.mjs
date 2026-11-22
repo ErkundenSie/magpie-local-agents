@@ -114,6 +114,60 @@ test('an image reaches the CLI as an inline data URL and is not resent on a reus
   }
 }, 30000);
 
+test('an image added on a later turn is sent once, with that turn', async () => {
+  const { chat, stop } = await harness();
+  const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  try {
+    const first = await (await chat({ model: 'codex-test-model', messages: [{ role: 'user', content: 'probe' }] })).json();
+    expect(first.choices[0].message.content).toBe('text');
+    const second = await (await chat({
+      model: 'codex-test-model',
+      messages: [
+        { role: 'user', content: 'probe' },
+        first.choices[0].message,
+        { role: 'user', content: [
+          { type: 'text', text: 'probe the new picture' },
+          { type: 'image_url', image_url: { url: `data:image/png;base64,${png}` } },
+        ] },
+      ],
+    })).json();
+    expect(second.choices[0].message.content).toBe('text,image:data:image/png;base64,');
+  } finally {
+    stop();
+  }
+}, 30000);
+
+test('a tool result image returns with that call, text and image in the order sent', async () => {
+  const { chat, stop } = await harness();
+  const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  try {
+    const first = await (await chat({
+      model: 'codex-test-model',
+      messages: [{ role: 'user', content: 'look it up' }],
+      tools: [tool],
+    })).json();
+    const call = first.choices[0].message.tool_calls[0];
+    const second = await (await chat({
+      model: 'codex-test-model',
+      messages: [
+        { role: 'user', content: 'look it up' },
+        first.choices[0].message,
+        { role: 'tool', tool_call_id: call.id, content: [
+          { type: 'text', text: 'found 42' },
+          { type: 'image_url', image_url: { url: `data:image/png;base64,${png}` } },
+          { type: 'text', text: 'see above' },
+        ] },
+      ],
+      tools: [tool],
+    })).json();
+    const text = second.choices[0].message.content;
+    expect(text).toContain('tool said found 42see above [text,image,text]');
+    expect(text).not.toContain(png);
+  } finally {
+    stop();
+  }
+}, 30000);
+
 test('a CLI usage limit surfaces as 429, not as a broken upstream', async () => {
   const { chat, stop } = await harness();
   try {

@@ -69,7 +69,10 @@ async function mcpSession(cwd) {
     const tool = listed.tools[0];
     if (!tool) return { content: 'no tools' };
     const result = await call('tools/call', { name: tool.name, arguments: { query: 'fixture' } });
-    return { content: result?.content?.[0]?.text ?? '' };
+    const blocks = Array.isArray(result?.content) ? result.content : [];
+    const text = blocks.filter((block) => block.type === 'text').map((block) => block.text).join('');
+    const images = blocks.filter((block) => block.type === 'image').map((block) => block.mimeType);
+    return { content: text, images, kinds: blocks.map((block) => block.type).join(',') };
   } finally {
     child.stdin.end();
     setTimeout(() => child.kill(), 200).unref();
@@ -122,7 +125,8 @@ for await (const line of createInterface({ input: process.stdin })) {
         send({ method: 'item/agentMessage/delta', params: { threadId: currentThread, turnId: 'tools-turn', delta: 'before tool' } });
         if (flags.has('mcp_servers.local_cli_tools')) sendUsage();
         const call = await mcpSession(params?.cwd ?? process.cwd());
-        send({ method: 'item/agentMessage/delta', params: { threadId: currentThread, turnId: 'tools-turn', delta: call ? `; tool said ${call.content}` : '; no tool server' } });
+        const imageNote = call?.images?.length ? ` [${call.kinds}]` : '';
+        send({ method: 'item/agentMessage/delta', params: { threadId: currentThread, turnId: 'tools-turn', delta: call ? `; tool said ${call.content}${imageNote}` : '; no tool server' } });
       }
       if (!prompt.includes('skip usage')) sendUsage();
       send({ method: 'turn/completed', params: { threadId: currentThread, turn: { id: 'tools-turn', status: 'completed' } } });
