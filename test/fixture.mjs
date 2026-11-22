@@ -4,6 +4,9 @@ const native = process.argv[2] === 'codex';
 let turns = 0;
 let currentModel;
 let currentEffort;
+const models = (process.argv[3] === 'catalog'
+  ? ['agy-pro-low', 'agy-pro-high', 'agy-pro-max', 'agy-flash-low', 'agy-flash']
+  : ['model-a', 'model-b']).map((value) => ({ value }));
 const send = (message) => process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', ...message })}\n`);
 const reply = (id, result) => send({ id, result });
 const lines = createInterface({ input: process.stdin });
@@ -16,16 +19,23 @@ for await (const line of lines) {
       : { protocolVersion: 1, promptCapabilities: { image: process.argv[3] === 'object-image' ? { supported: true } : process.argv[3] !== 'no-image' } }); break;
     case 'initialized': break;
     case 'config/read': reply(id, { config: { model_provider: 'openai', openai_base_url: '' } }); break;
+    case 'account/read': reply(id, { account: { type: 'chatgpt', email: 'fixture@example.invalid' }, requiresOpenaiAuth: true }); break;
     case 'session/new': reply(id, { sessionId: 'acp-session', configOptions: [
-      { id: 'model', category: 'model', currentValue: 'model-a', options: [{ value: 'model-a' }, { value: 'model-b' }] },
-      { id: 'thought_level', category: 'thought_level', currentValue: 'medium', options: [{ value: 'low' }, { value: 'medium' }, { value: 'high' }] },
+      { id: 'model', category: 'model', currentValue: models[0].value, options: models },
+      ...(process.argv[3] === 'catalog' ? [] : [{
+        id: 'thought_level', category: 'thought_level', currentValue: 'medium',
+        options: [{ value: 'low' }, { value: 'medium' }, { value: 'high' }],
+      }]),
     ] }); break;
     case 'session/set_config_option': {
       if (params.configId === 'thought_level') currentEffort = params.value;
       else currentModel = params.value;
       const configs = [
-        { id: 'model', category: 'model', currentValue: currentModel ?? 'model-a', options: [{ value: 'model-a' }, { value: 'model-b' }] },
-        { id: 'thought_level', category: 'thought_level', currentValue: currentEffort ?? 'medium', options: [{ value: 'low' }, { value: 'medium' }, { value: 'high' }] },
+        { id: 'model', category: 'model', currentValue: currentModel ?? 'model-a', options: models },
+        ...(process.argv[3] === 'catalog' && currentModel !== 'agy-flash' ? [] : [{
+          id: 'thought_level', category: 'thought_level', currentValue: currentEffort ?? 'medium',
+          options: [{ value: 'low' }, { value: 'medium' }, { value: 'high' }],
+        }]),
       ];
       reply(id, { configOptions: configs });
       break;
@@ -49,6 +59,15 @@ for await (const line of lines) {
       const turn = ++turns;
       const first = params.prompt[0]?.text ?? '';
       // A probe turn reports back how the prompt's content blocks arrived.
+      if (process.argv[3] === 'catalog') {
+        for (const [sessionUpdate, text] of [['agent_thought_chunk', 'summary'], ['agent_message_chunk', [currentModel ?? 'default', currentEffort].filter(Boolean).join(':')]]) {
+          send({ method: 'session/update', params: { sessionId: 'acp-session', update: {
+            sessionUpdate, content: { type: 'text', text },
+          } } });
+        }
+        reply(id, { stopReason: 'end_turn' });
+        break;
+      }
       if (first.startsWith('probe')) {
         const kinds = params.prompt.map((part) => part.type === 'image'
           ? `image:${part.mimeType}:${String(part.data).slice(0, 4)}` : part.type).join(',');
@@ -102,14 +121,18 @@ for await (const line of lines) {
         } } });
         send({ method: 'session/update', params: { sessionId: 'acp-session', update: {
           sessionUpdate: 'usage_update', used: 999, size: 2000,
+          ...(process.argv[2] === 'claude' && { _meta: { '_claude/rateLimit': {
+            five_hour: { utilization: 42, resets_at: '2026-11-22T06:00:00Z' },
+            seven_day: { utilization: 12.5, resets_at: '2026-11-27T00:00:00Z' },
+          } } }),
         } } });
         const usage = process.argv[2] === 'grok'
           ? { _meta: { totalTokens: 999, usage: {
             inputTokens: 30, outputTokens: 10, cachedReadTokens: 12, cacheCreationTokens: 3, reasoningTokens: 6, totalTokens: 40,
           } } }
-          : { usage: process.argv[2] === 'antigravity'
-            ? { inputTokens: 18, outputTokens: 10, thoughtTokens: 6, cachedReadTokens: 12, totalTokens: 40 }
-            : { inputTokens: 30, outputTokens: 4, thoughtTokens: 6, cachedReadTokens: 12, totalTokens: 40 } };
+          // ACP agents report uncached input next to the cache counts; the total
+          // is what confirms how the plugin should fold them.
+          : { usage: { inputTokens: 18, outputTokens: 10, thoughtTokens: 6, cachedReadTokens: 12, totalTokens: 40 } };
         reply(approval.id, { stopReason: 'end_turn', ...(approval.turn === 1 && usage) });
       } else if (id !== undefined && method) {
         send({ id, error: { code: -32601, message: 'Unsupported fixture method' } });

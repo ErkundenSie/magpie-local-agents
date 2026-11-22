@@ -63,7 +63,7 @@ try {
         contextId: context.id, returnByValue: true,
       }, context.sessionId).catch(() => null);
       const state = probe?.result?.value;
-      if (state?.state === 'ready' && state.agents === 5) {
+      if (state?.state === 'ready' && state.agents === 4) {
         console.log(`ready in Magpie's sandboxed frame: page service on ${state.port}, ${state.agents} agents`);
         found = true;
       }

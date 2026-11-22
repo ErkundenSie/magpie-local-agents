@@ -28,7 +28,8 @@
     idle: '未连接', connecting: '正在连接…', ready: '已连接', offline: '连接已断开', invalid: '凭据无效',
     invalidToken: '打开此页面需要有效的连接凭据。请从 Magpie 重新打开。',
     disconnected: '连接已断开。发送新消息可重新连接。',
-    unknown: '连接后检测', available: '可用', unavailable: '不可用',
+    unknown: '连接后检测', available: '已找到程序 · 登录未验证', unavailable: '程序未就绪',
+    authorized: 'CLI 报告已授权', required: 'CLI 要求登录',
     unavailableAgent: (agent) => `${agent} 不可用。`,
     session: (id) => `会话 ${id}`, you: '你', thought: '思考过程', tool: '工具',
     permission: '权限请求', permissionWaiting: '等待选择', permissionSent: '已提交选择',
@@ -58,7 +59,8 @@
     idle: 'Disconnected', connecting: 'Connecting…', ready: 'Connected', offline: 'Connection closed', invalid: 'Invalid credential',
     invalidToken: 'This page needs a valid connection credential. Reopen it from Magpie.',
     disconnected: 'Connection closed. Send a new message to reconnect.',
-    unknown: 'Checked on connect', available: 'Available', unavailable: 'Unavailable',
+    unknown: 'Checked on connect', available: 'CLI found · sign-in not verified', unavailable: 'CLI not ready',
+    authorized: 'CLI reports authorization', required: 'CLI requires sign-in',
     unavailableAgent: (agent) => `${agent} is unavailable.`,
     session: (id) => `Session ${id}`, you: 'You', thought: 'Thoughts', tool: 'Tool',
     permission: 'Permission request', permissionWaiting: 'Awaiting choice', permissionSent: 'Choice submitted',
@@ -105,7 +107,6 @@
   const agentDefaults = new Map([
     ['codex', { label: 'Codex', icon: 'CX' }],
     ['claude', { label: 'Claude', icon: 'CL' }],
-    ['gemini', { label: 'Gemini', icon: 'GM' }],
     ['antigravity', { label: 'Antigravity', icon: 'AG' }],
     ['grok', { label: 'Grok', icon: 'GK' }],
   ]);
@@ -171,7 +172,7 @@
       const availability = info ? (info.available ? 'available' : 'unavailable') : 'unknown';
       view.row.dataset.availability = availability;
       view.name.textContent = nameOf(id);
-      view.status.textContent = labels[availability];
+      view.status.textContent = labels[info?.accountStatus ?? availability];
       view.row.title = [info?.protocol, info?.hint].filter(Boolean).join(' · ');
     }
     activeAgentLabel.textContent = nameOf(activeAgent);
@@ -364,6 +365,8 @@
     tools.clear();
     finishPermissions(labels.permissionDisconnected);
     setSession();
+    for (const info of agents.values()) delete info.accountStatus;
+    renderAgents();
     const invalid = code === 4401;
     setConnection(invalid ? 'invalid' : 'offline');
     setNotice(invalid ? labels.invalidToken : labels.disconnected, 'error');
@@ -443,7 +446,17 @@
       return;
     }
     if (connection !== 'ready') return;
+    if (event.type === 'account_status') {
+      const info = agents.get(event.agent);
+      if (info?.available && !resetting) {
+        info.accountStatus = ['authorized', 'required'].includes(event.status) ? event.status : undefined;
+        renderAgents();
+      }
+      return;
+    }
     if (event.type === 'reset') {
+      for (const info of agents.values()) delete info.accountStatus;
+      renderAgents();
       resetting = false;
       clearConversation();
       setNotice(labels.resetComplete);

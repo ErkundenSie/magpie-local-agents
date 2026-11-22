@@ -6,9 +6,9 @@
 [![runs on Bun](https://img.shields.io/badge/runs%20on-Bun-f472b6)](https://bun.sh)
 [![no dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)](package.json)
 
-Use the coding CLIs you are already signed in to — **Codex, Claude Code, Gemini CLI, Antigravity, Grok Build** — inside [Magpie](https://usemagpie.ai), and expose them through the Magpie gateway as a normal OpenAI-compatible provider.
+Use the coding CLIs you are already signed in to — **Codex, Claude Code, Antigravity, Grok Build** — inside [Magpie](https://usemagpie.ai), and expose them through the Magpie gateway as a normal OpenAI-compatible provider.
 
-The plugin drives each CLI as a child process over its own protocol (Codex App Server or ACP) and lets the CLI talk to its vendor with its own login. It never reads, stores, or refreshes subscription tokens, and it never routes a subscription through an API relay.
+The plugin drives each CLI as a child process over its own protocol (Codex App Server or ACP) and lets the CLI talk to its vendor with its own login. It never routes a subscription through an API relay. The only credential it ever reads is the Grok sign-in file, and only for the read-only quota check described below.
 
 - **Page plugin** — pick an agent and a workspace, then talk to it from Magpie's sidebar.
 - **Provider** — appears as `Local CLI` in **Settings → Providers**, so any OpenAI-compatible client can call `local-cli/<agent>-<model>` through the gateway.
@@ -44,7 +44,6 @@ Models are named `local-cli/<agent>-<native model>`. An agent that reports no mo
 | `local-cli/codex-gpt-6.2-sol` | A native Codex model discovered from your account |
 | `local-cli/codex-default` | Let Codex pick the native model |
 | `local-cli/claude-default` | Claude Code's own default |
-| `local-cli/gemini-default` | Gemini CLI's own default |
 | `local-cli/antigravity-default` | Antigravity CLI's own default |
 | `local-cli/grok-default` | Grok Build's own default |
 
@@ -62,13 +61,19 @@ When the CLI calls one, the plugin emits a standard `tool_calls` response and **
 
 Each request's history is compared against what a live session has already consumed — including the assistant replies and tool results the plugin itself returned. If they match, only the **new messages** are sent to the CLI. A rewritten assistant reply, a trimmed transcript, or a different toolset starts a fresh session and replays the full history. Two follow-ups branching from the same history get independent sessions, so they cannot contaminate each other.
 
-Up to four sessions are kept, each closed after ten minutes idle. This removes the cold start and the cost of resending the whole transcript on every turn.
+Up to four live sessions are kept, each closed after ten minutes idle. This removes the cold start and the cost of resending the whole transcript on every turn.
+
+After an Antigravity or Grok gateway turn completes, the plugin saves a local checkpoint with the native session ID and a history fingerprint. After a restart, matching history can resume through `session/resume` and send only new messages. If the CLI cannot resume the checkpoint, the plugin opens a fresh session and replays the client-provided history. Codex gateway threads stay ephemeral and are not resumed. An in-flight tool call cannot resume across restart. Checkpoints contain no message bodies, tool results, or credentials. By default they can be reused for up to six hours and live under `$XDG_STATE_HOME/magpie-local-agents` or `~/.local/state/magpie-local-agents`. Set `MAGPIE_LOCAL_CLI_AGY_RESUME_DIR` to an absolute path to change the location, or `MAGPIE_LOCAL_CLI_AGY_RESUME_TTL_MS=0` to disable restart recovery.
 
 ### Changing model and reasoning level mid-conversation
 
 A different model in the same conversation switches the running session instead of restarting it: ACP goes through `session/set_config_option`, and Codex carries `model` on its next `turn/start`. The plugin falls back to a new session only when the CLI refuses the model.
 
-`reasoning_effort` (or `reasoning.effort` in the Responses shape) accepts `minimal`, `low`, `medium`, `high`, and `xhigh`. ACP applies it through the `thought_level` configuration option; Codex sends `effort` with `turn/start`. A level the CLI does not offer leaves its own default in place rather than failing the request.
+`reasoning_effort` (or `reasoning.effort` in the Responses shape) accepts `minimal`, `low`, `medium`, `high`, and `xhigh`. Antigravity also accepts `max` if agy offers it. ACP uses the model's `thought_level` configuration when available. Codex sends `effort` with `turn/start`. An unsupported level on a native model leaves the CLI's current setting in place.
+
+The Antigravity catalog lists the reasoning levels that agy reports for each model. When agy offers multiple effort-suffixed IDs for a family, the catalog also publishes a family alias with those levels. Existing native IDs remain callable. The alias defaults to `high` when offered or the highest listed level otherwise. Requesting an unavailable level on the alias returns HTTP 400.
+
+Chat Completions returns CLI-emitted ACP thought text and Codex summaries in `reasoning_content`, separately from the reply text. Streaming clients receive it in a delta.
 
 A turn that is already parked waiting for tool results cannot change model or level — that request starts a new session instead.
 
@@ -81,6 +86,18 @@ Images never enter the text prompt. A marker such as `[image 1: e42704]` takes t
 ### Token usage
 
 Usage is reported with each completed turn. Codex reports the per-turn delta of its thread-cumulative counters; ACP is read from `session/prompt`'s `usage`, and Grok also reports it under `_meta.usage`. Cache and reasoning breakdowns are passed through when the CLI provides them. With a tool call spanning several requests, usage arrives once with the final completed response. For streaming calls, `stream_options.include_usage: true` puts it in the last frame. When a CLI reports nothing, the field is omitted rather than guessed.
+
+### Subscription quota
+
+Magpie's Usage page shows subscription windows reported by the local CLIs under Local CLI. Use the card's refresh button or `magpie quota refresh local-cli` to request a fresh reading.
+
+- **Antigravity** comes from `agy /usage`.
+- **Codex** comes from the app-server `account/rateLimits/read` method.
+- **Grok** comes from a read-only `GET` to Grok's own billing endpoint, authorized with the xAI sign-in that `grok login` already stored in `~/.grok/auth.json`.
+
+That Grok check is the one place the plugin reads a credential file. The token is read per check, used only for that one request to `cli-chat-proxy.grok.com`, and never written, logged, cached, refreshed, or sent anywhere else. Set `MAGPIE_LOCAL_CLI_GROK_QUOTA=0` to turn the check off entirely. When Grok is configured through `XAI_API_KEY`, `GROK_API_KEY` or `GROK_TOKEN`, there is no subscription window and nothing is read.
+
+Claude Code reports its plan windows over ACP itself: the adapter sends them on `usage_update` notifications under `_meta["_claude/rateLimit"]` and on prompt results. Nothing is read from disk for Claude. Its card therefore appears after Claude's first gateway turn in this process, and its windows stop being shown 15 minutes after the last report. Every window is display-only and none of them change routing. Subscription windows and per-request token counts are reported separately.
 
 ### Errors
 
@@ -95,7 +112,6 @@ A gateway caller is a text client, not an interactive coding agent, so each requ
 | Codex | Read-only sandbox, `approvalPolicy: never`, ephemeral thread; shell tool, hooks, plugins, apps and web search disabled; each of your own MCP servers replaced by a stub that offers no tools, keeping only the caller's tool server, with `default_tools_approval_mode = "approve"` to avoid an approval round-trip |
 | Grok Build | Dedicated agent profile: built-ins stripped, `inheritMcp: false` so no global MCP servers, skills or plugins; the MCP meta-tools stay only when the caller declares tools |
 | Antigravity CLI | `--settings` injects `permissions.deny`, denying commands, reads/writes and network by default; `mcp(*)` is left out unless the caller declares tools, with `toolPermission: strict` |
-| Gemini CLI | `--admin-policy` injects a policy that denies everything by default, with a higher-priority `mcp_*` allow when the caller declares tools |
 | Claude Code | `session/new` `_meta` sets `tools: []` to drop built-ins; `disallowedTools: ['*']` is not used when the caller declares tools, so their MCP tools survive |
 
 Each CLI session runs in its own temporary directory, deleted when the session closes. Approval requests raised by the CLI itself are always declined; only tools the caller declared are allowed.
@@ -108,11 +124,10 @@ Limits: 2 MiB per request, 5 minutes per turn, 3 concurrent requests (429 beyond
 | --- | --- | --- |
 | OpenAI Codex | `codex app-server --listen stdio://` | Install OpenAI Codex and sign in from the CLI or the desktop app. On Windows the plugin also finds the executable bundled with the Microsoft Store build of Codex Desktop. |
 | Claude Code | `claude-agent-acp`, wrapping your existing `claude` | Install native Claude Code and sign in. Also install [Claude Agent ACP](https://github.com/agentclientprotocol/claude-agent-acp), e.g. `npm install -g @agentclientprotocol/claude-agent-acp`. |
-| Gemini CLI | `gemini --acp` | Install a Gemini CLI with `--acp` support. Google One and personal users can use Antigravity CLI instead. |
-| Antigravity CLI | `agy acp` | Install Google Antigravity CLI and sign in with `agy`. |
+| Antigravity CLI | `agy acp` | Install Google Antigravity CLI and sign in with `agy`. Gemini CLI was retired in favour of `agy`, so Antigravity is the Google option. |
 | Grok Build | `grok agent --no-leader stdio` | Install xAI Grok Build and run `grok login`. |
 
-"Available" in the UI only means the launcher was found; the real sign-in state is decided by the CLI when it starts a session. The plugin runs executables by absolute path without a login shell, so it bypasses shell-profile functions Magpie injects.
+The UI marks detected launchers as sign-in unverified. When a Codex page session starts, the UI updates if Codex explicitly reports an account or requires sign-in. The check requests no token refresh. The plugin runs executables by absolute path without a login shell, so it bypasses shell-profile functions Magpie injects.
 
 If a launcher is missing or you need a pinned version, put `.local-agents.json` in the project root. Include only the fields you want to override, and replace the paths with your own:
 
@@ -127,7 +142,7 @@ If a launcher is missing or you need a pinned version, put `.local-agents.json` 
 }
 ```
 
-`gemini` and `antigravity` work the same way. On Windows, `.exe` files run directly, and a standard npm `.cmd` shim (for anything other than Claude itself) is resolved to its JavaScript entry point and run with Node.
+`claude`, `antigravity` and `grok` work the same way. On Windows, `.exe` files run directly, and a standard npm `.cmd` shim (for anything other than Claude itself) is resolved to its JavaScript entry point and run with Node.
 
 ## Page plugin
 
@@ -135,7 +150,7 @@ Within one page, an agent reuses its native session for the same workspace, with
 
 For Codex the plugin pins the OpenAI provider and clears any custom inference URL for that subprocess, so Codex uses its official endpoint through its own authentication. Other CLIs keep their native configuration; the plugin inspects common environment variables and config files and warns when a known custom model URL is set. Authentication, enterprise policy, system proxies, and CLI extensions remain with those programs.
 
-The plugin does not read or manage `auth.json`, refresh tokens, or rewrite any CLI's user settings. To undo a routing change, do it in that CLI or in Magpie. Whether a given subscription may be used in a given CLI or SDK is decided by that vendor's account and product rules.
+The plugin does not manage `auth.json`, refresh tokens, or rewrite any CLI's user settings. Grok's sign-in file is read only for the quota check above and never written back. To undo a routing change, do it in that CLI or in Magpie. Whether a given subscription may be used in a given CLI or SDK is decided by that vendor's account and product rules.
 
 ## Development
 
@@ -175,7 +190,7 @@ Layout:
 
 - [Magpie plugin docs](https://usemagpie.ai/docs/plugins) and [Agent Console](https://github.com/magpie-community/plugins/tree/main/packages/agent-console) for page plugins, the host, and Windows child processes.
 - [BytePioneer-AI/codex-host](https://github.com/BytePioneer-AI/codex-host) for the adapter split and [Grok stdio mode](https://github.com/BytePioneer-AI/codex-host/blob/main/docs/harnesses/grok/permission-modes.md). It is not a runtime dependency.
-- Protocol references: [Codex App Server](https://developers.openai.com/blog/codex-as-a-platform), [ACP v1](https://agentclientprotocol.com/protocol/v1/overview), [Gemini CLI ACP](https://geminicli.com/docs/cli/acp-mode) and its [policy engine](https://geminicli.com/docs/reference/policy-engine), [Antigravity CLI ACP](https://antigravity.google/docs/cli/acp) and [permissions](https://antigravity.google/docs/permissions), [Grok Build agent mode](https://github.com/xai-org/grok-build/blob/main/crates/codegen/xai-grok-pager/docs/user-guide/15-agent-mode.md) and its [agent profile tool fields](https://github.com/xai-org/grok-build/blob/main/crates/codegen/xai-grok-shell/README.md).
+- Protocol references: [Codex App Server](https://developers.openai.com/blog/codex-as-a-platform), [ACP v1](https://agentclientprotocol.com/protocol/v1/overview), [Antigravity CLI ACP](https://antigravity.google/docs/cli/acp) and [permissions](https://antigravity.google/docs/permissions), [Grok Build agent mode](https://github.com/xai-org/grok-build/blob/main/crates/codegen/xai-grok-pager/docs/user-guide/15-agent-mode.md) and its [agent profile tool fields](https://github.com/xai-org/grok-build/blob/main/crates/codegen/xai-grok-shell/README.md).
 
 ## License
 

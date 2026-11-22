@@ -11,7 +11,7 @@
   "scripts": { "test": "bun test" },
   "keywords": [
     "magpie-plugin", "magpie-page", "magpie-provider", "acp", "agent-client-protocol",
-    "codex", "claude-code", "gemini-cli", "antigravity", "grok", "local-llm", "openai-compatible"
+    "codex", "claude-code", "antigravity", "grok", "local-llm", "openai-compatible"
   ],
   "repository": { "type": "git", "url": "git+https://github.com/ErkundenSie/magpie-local-agents.git" },
   "bugs": { "url": "https://github.com/ErkundenSie/magpie-local-agents/issues" },

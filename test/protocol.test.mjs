@@ -1,5 +1,9 @@
 import { expect, test } from 'bun:test';
 import { fileURLToPath } from 'node:url';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { providerHooks } from '../lib/provider.mjs';
 import { AgentSession } from '../lib/session.mjs';
 
 function fixture(agent, emit) {
@@ -12,7 +16,7 @@ function fixture(agent, emit) {
 
 test('ACP keeps session context and submits only an explicit one-shot decision', async () => {
   const events = [];
-  const session = fixture('gemini', (event) => {
+  const session = fixture('claude', (event) => {
     events.push(event);
     if (event.type === 'permission') {
       session.decide(event.id, 'always');
@@ -57,8 +61,74 @@ test.each([['grok', 3], ['antigravity', undefined]])('%s reports completed turn 
   }
 });
 
+test('Claude reports its plan windows over ACP during a turn', async () => {
+  const limits = [];
+  const session = fixture('claude', (event) => {
+    if (event.type === 'permission') session.decide(event.id, 'yes');
+    if (event.type === 'claude_limit') limits.push(event.limit);
+  });
+  try {
+    await session.start();
+    await session.prompt('first');
+    expect(limits).toHaveLength(1);
+    expect(Object.keys(limits[0])).toEqual(['five_hour', 'seven_day']);
+  } finally {
+    session.close();
+  }
+});
+
+test('Codex reports account status without sending account details to the page', async () => {
+  const account = Promise.withResolvers();
+  const session = fixture('codex', (event) => {
+    if (event.type === 'account_status') account.resolve(event);
+  });
+  try {
+    await session.start();
+    await session.prompt('hello');
+    expect(await account.promise).toEqual({ type: 'account_status', agent: 'codex', status: 'authorized' });
+  } finally {
+    session.close();
+  }
+});
+
+test('agy advertises its native variants and routes each effort while keeping summaries separate', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'local-cli-catalog-test-'));
+  const executable = { path: process.execPath, args: [fileURLToPath(new URL('fixture.mjs', import.meta.url)), 'antigravity', 'catalog'] };
+  writeFileSync(join(root, '.local-agents.json'), JSON.stringify({ executables: { antigravity: executable } }));
+  const hooks = providerHooks(root);
+  try {
+    const models = await hooks.provider.models(null, { auth: true });
+    expect(Object.keys(models['antigravity-agy-pro'].variants)).toEqual(['low', 'high', 'max']);
+    expect(models['antigravity-agy-pro-low']).toBeDefined();
+    expect(Object.keys(models['antigravity-agy-flash'].variants)).toEqual(['low', 'medium', 'high']);
+    expect(models['antigravity-agy-pro-high'].variants).toBeUndefined();
+    const loader = await hooks.auth.loader(async () => ({ key: 'local-cli-linked' }));
+    const chat = (messages, reasoning_effort, stream = false) => loader.fetch(`${loader.baseURL}/chat/completions`, {
+      method: 'POST', body: JSON.stringify({ model: 'antigravity-agy-pro', messages, reasoning_effort, stream }),
+    });
+    const history = [{ role: 'user', content: 'first' }];
+    const first = (await (await chat(history)).json()).choices[0].message;
+    expect(first).toEqual({ role: 'assistant', content: 'agy-pro-high', reasoning_content: 'summary' });
+    history.push(first, { role: 'user', content: 'second' });
+    const second = (await (await chat(history, 'max')).json()).choices[0].message;
+    expect(second.content).toBe('agy-pro-max');
+    history.push(second, { role: 'user', content: 'third' });
+    const stream = await (await chat(history, 'high', true)).text();
+    expect(stream).toContain('"reasoning_content":"summary"');
+    expect(stream).toContain('"content":"agy-pro-high"');
+    expect((await chat(history, 'medium')).status).toBe(400);
+    const flash = await loader.fetch(`${loader.baseURL}/chat/completions`, {
+      method: 'POST', body: JSON.stringify({ model: 'antigravity-agy-flash', messages: history.slice(0, 1), reasoningEffort: 'low' }),
+    });
+    expect((await flash.json()).choices[0].message.content).toBe('agy-flash:low');
+  } finally {
+    hooks.stop();
+    rmSync(root, { recursive: true, force: true });
+  }
+}, 30000);
+
 test('ACP cancellation reaches the subprocess and settles the pending request', async () => {
-  const session = fixture('gemini', () => {});
+  const session = fixture('claude', () => {});
   try {
     await session.start();
     const turn = session.prompt('wait');
@@ -93,9 +163,9 @@ const image = { mimeType: 'image/png', data: png };
 
 test('ACP sends images as base64 content blocks next to the text', async () => {
   const events = [];
-  const session = new AgentSession('gemini', {
+  const session = new AgentSession('claude', {
     file: process.execPath,
-    args: [fileURLToPath(new URL('fixture.mjs', import.meta.url)), 'gemini', 'object-image'],
+    args: [fileURLToPath(new URL('fixture.mjs', import.meta.url)), 'claude', 'object-image'],
     cwd: process.cwd(), env: process.env,
   }, (event) => events.push(event));
   try {
@@ -121,9 +191,9 @@ test('Codex sends images as inline data URLs', async () => {
 });
 
 test('an ACP agent without the image capability refuses images', async () => {
-  const session = new AgentSession('gemini', {
+  const session = new AgentSession('claude', {
     file: process.execPath,
-    args: [fileURLToPath(new URL('fixture.mjs', import.meta.url)), 'gemini', 'no-image'],
+    args: [fileURLToPath(new URL('fixture.mjs', import.meta.url)), 'claude', 'no-image'],
     cwd: process.cwd(), env: process.env,
   }, () => {});
   try {
@@ -136,7 +206,7 @@ test('an ACP agent without the image capability refuses images', async () => {
 
 test('a running ACP session switches model without starting over', async () => {
   const events = [];
-  const session = fixture('gemini', (event) => events.push(event));
+  const session = fixture('claude', (event) => events.push(event));
   try {
     await session.start();
     await session.setModel('model-b');
@@ -166,7 +236,7 @@ test('Codex carries the switched model on the next turn', async () => {
 
 test('a running ACP session applies a reasoning level in place', async () => {
   const events = [];
-  const session = fixture('gemini', (event) => events.push(event));
+  const session = fixture('claude', (event) => events.push(event));
   try {
     await session.start();
     await session.setEffort('high');
@@ -192,7 +262,7 @@ test('Codex carries the reasoning level on the next turn', async () => {
 
 test('a CLI that does not offer the level keeps its own default', async () => {
   const events = [];
-  const session = fixture('gemini', (event) => events.push(event));
+  const session = fixture('claude', (event) => events.push(event));
   try {
     await session.start();
     // "minimal" is not among the values this CLI lists.

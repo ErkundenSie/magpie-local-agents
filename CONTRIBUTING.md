@@ -4,7 +4,9 @@ Thanks for taking a look. This is a small plugin with a deliberately narrow surf
 
 ## Before you start
 
-The plugin never reads, stores, or refreshes subscription tokens, and it must never route a subscription through an API relay. A change that converts a subscription into API traffic, or that makes the plugin hold a vendor's credentials, will not be merged.
+The plugin never routes a subscription through an API relay, never refreshes or rotates a vendor's token, and never writes a credential back. A change that converts a subscription into API traffic, or that makes the plugin hold or renew a vendor's credentials, will not be merged.
+
+There is exactly one documented exception. `lib/grok-quota.mjs` reads the xAI sign-in that `grok login` already stored in `~/.grok/auth.json`, and uses it for one read-only quota request to Grok's own billing endpoint. The token is read per check, never stored in a checkpoint, never logged, and never sent anywhere but that endpoint; `MAGPIE_LOCAL_CLI_GROK_QUOTA=0` disables the check. Do not widen this exception to other checks without the same review.
 
 Two rules follow from that, and they are not negotiable:
 

@@ -251,12 +251,13 @@ export function server(_input = {}, options = {}) {
   const { stop: stopProvider, ...hooks } = providerHooks(root, { bridge });
   const stop = () => {
     stopped = true;
-    stopProvider();
+    const retired = stopProvider();
     clearTimeout(timer);
     clearInterval(beat);
     instance?.stop(true);
     removeOwnedBootstrap(key);
     process.off('exit', onExit);
+    return retired;
   };
   process.on('exit', onExit);
   timer = setTimeout(start, delay);
