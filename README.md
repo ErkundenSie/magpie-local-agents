@@ -89,9 +89,9 @@ Usage is reported with each completed turn. Codex reports the per-turn delta of 
 
 ### Subscription quota
 
-Magpie's Usage page shows subscription windows reported by the local CLIs under Local CLI. Use the card's refresh button or `magpie quota refresh local-cli` to request a fresh reading.
+Magpie's Usage page shows subscription windows reported by the local CLIs under Local CLI. Use the card's refresh button or `magpie quota refresh local-cli` to request a fresh reading. A refresh queries only the CLIs that have a model checked. Antigravity's Gemini and Claude/GPT pools come from one reading, so checking any Antigravity model shows both. When that checklist cannot be read, every CLI is queried.
 
-- **Antigravity** comes from `agy /usage`.
+- **Antigravity** comes from `agy /usage`. The card labels those groups `Gemini (agy)` and `Claude/GPT (agy)`, instead of the CLI's own "Claude and GPT models".
 - **Codex** comes from the app-server `account/rateLimits/read` method.
 - **Grok** comes from a read-only `GET` to Grok's own billing endpoint, authorized with the xAI sign-in that `grok login` already stored in `~/.grok/auth.json`.
 

@@ -70,10 +70,10 @@ test('native usage reports display-only usage windows and deduplicates concurren
   assert.deepEqual(first, {
     readAt: '2026-11-22T00:00:00.000Z',
     windows: [
-      { name: '5 hours', pool: 'Gemini models', aside: true, span: 18_000, used: 100, resetsAt: '2026-11-22T00:00:00.000Z' },
-      { name: '7 days', pool: 'Gemini models', aside: true, span: 604_800, used: 2.5, resetsAt: '2026-11-27T00:00:00.000Z' },
-      { name: '3 hours', pool: 'Gemini models', aside: true, used: 0 },
-      { name: 'unknown', pool: 'Gemini models', aside: true, display: 'Limits not available' },
+      { name: '5 hours', pool: 'Gemini (agy)', aside: true, span: 18_000, used: 100, resetsAt: '2026-11-22T00:00:00.000Z' },
+      { name: '7 days', pool: 'Gemini (agy)', aside: true, span: 604_800, used: 2.5, resetsAt: '2026-11-27T00:00:00.000Z' },
+      { name: '3 hours', pool: 'Gemini (agy)', aside: true, used: 0 },
+      { name: 'unknown', pool: 'Gemini (agy)', aside: true, display: 'Limits not available' },
     ],
   });
   assert.deepEqual(second, first);
@@ -134,6 +134,23 @@ test('an unverified CLI version skips /usage and explicit sign-in errors discard
   assert.equal(ineligible.readAt, undefined);
   assert.match(ineligible.error, /cannot access its quota/);
   assert.doesNotMatch(ineligible.error, /private-location-marker/);
+});
+
+test('Antigravity group names say whose quota they are', async (t) => {
+  const { read, scenario } = await setup(t);
+  await scenario({ report: {
+    status: 'SUCCESS',
+    command: { name: 'usage', data: { groups: [
+      { display_name: 'Gemini Models', buckets: [{ id: 'weekly', window: '7d', remainingFraction: 0.939 }] },
+      { display_name: 'Claude and GPT models', buckets: [{ id: 'weekly', window: '7d', remainingFraction: 1 }] },
+      { displayName: 'Other', buckets: [{ id: 'weekly', remainingFraction: 0.5 }] },
+    ] } },
+  } });
+  assert.deepEqual((await read()).windows.map(({ pool, name, used }) => ({ pool, name, used })), [
+    { pool: 'Gemini (agy)', name: '7 days', used: 6.1 },
+    { pool: 'Claude/GPT (agy)', name: '7 days', used: 0 },
+    { pool: 'Other (agy)', name: '7 days', used: 50 },
+  ]);
 });
 
 test('malformed and unmeasured native reports never imply an allowance', async (t) => {

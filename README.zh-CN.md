@@ -87,9 +87,9 @@ Chat Completions 通过独立的 `reasoning_content` 字段返回 ACP 提供的�
 
 ### 订阅额度
 
-Magpie 的「用量」页会在 Local CLI 卡片下显示本机 CLI 报告的订阅窗口。可以点击刷新，或运行 `magpie quota refresh local-cli`。
+Magpie 的「用量」页会在 Local CLI 卡片下显示本机 CLI 报告的订阅窗口。可以点击刷新，或运行 `magpie quota refresh local-cli`。刷新只查询勾选了模型的那几家 CLI。Antigravity 的 Gemini 与 Claude/GPT 额度来自同一次读取，所以勾选它的任一模型就会同时显示这两条。读不到勾选名单时，仍查询全部 CLI。
 
-- **Antigravity** 来自 `agy /usage`。
+- **Antigravity** 来自 `agy /usage`。卡片上写成 `Gemini (agy)` 和 `Claude/GPT (agy)`，不用 CLI 原来的「Claude and GPT models」，以免看成 Claude 或 GPT 自己的额度。
 - **Codex** 来自 app-server 的 `account/rateLimits/read`。
 - **Grok** 来自对 Grok 自己计费接口的一次只读 `GET`，用 `grok login` 已存在 `~/.grok/auth.json` 里的 xAI 登录授权。
 
