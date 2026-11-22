@@ -69,7 +69,7 @@ test('ACP cancellation reaches the subprocess and settles the pending request', 
   }
 });
 
-test('a cancelled ACP turn leaves the session usable for the next one', async () => {
+test('a turn the CLI cancels before any text is retried as text-only', async () => {
   const events = [];
   const session = new AgentSession('grok', {
     file: process.execPath,
@@ -78,8 +78,10 @@ test('a cancelled ACP turn leaves the session usable for the next one', async ()
   }, (event) => events.push(event));
   try {
     await session.start();
-    expect(await session.prompt('wait')).toBe('cancelled');
-    // The same CLI process answers the next turn instead of looking dead.
+    // The first attempt is cancelled silently; the retry answers as text.
+    expect(await session.prompt('wait')).toBe('end_turn');
+    expect(events.filter(({ type }) => type === 'text').map(({ text }) => text)).toEqual(['retried as text']);
+    // The same CLI process still answers the next turn.
     expect(await session.prompt('probe')).toBe('end_turn');
   } finally {
     session.close();

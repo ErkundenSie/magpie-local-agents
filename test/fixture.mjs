@@ -60,6 +60,14 @@ for await (const line of lines) {
         reply(id, { stopReason: 'end_turn' });
         break;
       }
+      // A text-only retry (the plugin's own nudge) is answered normally.
+      if (first.includes('Do not call any tool')) {
+        send({ method: 'session/update', params: { sessionId: 'acp-session', update: {
+          sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'retried as text' },
+        } } });
+        reply(id, { stopReason: 'end_turn' });
+        break;
+      }
       if (first === 'wait') {
         if (process.argv[3] === 'cancelled') {
           reply(id, { stopReason: 'cancelled' });
