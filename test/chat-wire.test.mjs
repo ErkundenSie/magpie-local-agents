@@ -242,7 +242,8 @@ test('keeps the text a CLI produced before it stopped the turn itself', async ()
   const response = await serveChat(parsed(), runText('half an answer', 'cancelled'));
   const body = await response.json();
   assert.equal(body.choices[0].message.content, 'half an answer');
-  assert.equal(body.choices[0].finish_reason, 'stop');
+  // Reported as truncated, so the caller does not treat it as a finished reply.
+  assert.equal(body.choices[0].finish_reason, 'length');
 
   // With nothing produced there is nothing to keep, so it stays an error.
   await assert.rejects(serveChat(parsed(), runText('', 'cancelled')), /cancelled/);
