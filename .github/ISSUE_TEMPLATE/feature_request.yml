@@ -1,0 +1,53 @@
+name: Feature request
+description: A capability the gateway or the page should have
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This plugin's scope is narrow on purpose: it forwards requests to CLIs you already signed in to, and it keeps gateway sessions constrained. Proposals that widen what a gateway caller can do to your machine will usually be declined.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do that the plugin makes hard today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like it to do
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Gateway (translation, tools, sessions, usage)
+        - A specific CLI adapter
+        - Page plugin UI
+        - Installation or packaging
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+      description: Including doing it outside the plugin, or in the CLI itself.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: This does not require the plugin to hold vendor credentials or relay subscription traffic
+          required: true
+        - label: I searched existing issues for this proposal
+          required: true

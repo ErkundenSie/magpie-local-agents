@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Magpie itself
+    url: https://usemagpie.ai
+    about: Problems with Magpie's gateway, providers or accounts belong in Magpie's own support, not here.
+  - name: The CLI you installed
+    url: https://usemagpie.ai/docs/plugins
+    about: If a request works differently when run directly in the CLI, that is the CLI's issue rather than this plugin's.

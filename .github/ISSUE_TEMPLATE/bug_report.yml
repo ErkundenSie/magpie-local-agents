@@ -1,0 +1,91 @@
+name: Bug report
+description: Something is broken — a request fails, a CLI will not start, or the gateway returns the wrong thing
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing: this plugin drives the CLI you installed, so a problem may belong to the CLI itself. Please try the same thing directly in that CLI first, and say what happened.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Include the exact error text. Do not paste tokens or screenshots containing them.
+      placeholder: |
+        Request to local-cli/grok-default returns 400 with:
+        tools[74] must be ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: true
+
+  - type: input
+    id: agent-version
+    attributes:
+      label: CLI and version
+      description: The agent you selected, and its version (`codex --version`, `grok --version`, `agy --version`, …).
+      placeholder: Grok Build 1.0.92
+    validations:
+      required: true
+
+  - type: input
+    id: magpie-version
+    attributes:
+      label: Magpie version
+      description: Shown at the bottom of Magpie, or run `magpie status`.
+      placeholder: 0.1.4660
+    validations:
+      required: true
+
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      description: From `package.json`, or the commit you installed.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where it fails
+      options:
+        - Provider (gateway request from another client)
+        - Page plugin (the panel inside Magpie)
+        - Installing or starting the plugin
+        - Something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: request
+    attributes:
+      label: Minimal request that reproduces it
+      description: A trimmed request body works best. Remove keys and personal content.
+      render: json
+    validations:
+      required: false
+
+  - type: textarea
+    id: direct
+    attributes:
+      label: Does the same thing work in the CLI directly?
+      description: What you ran and what it returned.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues for this problem
+          required: true
+        - label: I removed API keys, tokens and personal data from this report
+          required: true

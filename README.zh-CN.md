@@ -1,5 +1,11 @@
 # magpie-local-agents
 
+[![test](https://github.com/ErkundenSie/magpie-local-agents/actions/workflows/test.yml/badge.svg)](https://github.com/ErkundenSie/magpie-local-agents/actions/workflows/test.yml)
+[![license: MIT](https://img.shields.io/github/license/ErkundenSie/magpie-local-agents)](LICENSE)
+[![Magpie](https://img.shields.io/badge/magpie-%E2%89%A50.1.4660-7c3aed)](https://usemagpie.ai)
+[![runs on Bun](https://img.shields.io/badge/runs%20on-Bun-f472b6)](https://bun.sh)
+[![无依赖](https://img.shields.io/badge/%E4%BE%9D%E8%B5%96-0-brightgreen)](package.json)
+
 在 [Magpie](https://usemagpie.ai) 里直接使用你已经登录的编码 CLI —— **Codex、Claude Code、Gemini CLI、Antigravity、Grok Build** —— 并把它们作为标准 OpenAI 兼容供应商暴露给 Magpie 网关。
 
 插件把各家 CLI 当作子进程，用它们各自的协议（Codex App Server 或 ACP）驱动，由 CLI 用自己的登录向原厂请求。插件不读取、不保存、不刷新任何订阅 token，也不把订阅包装成 API 流量转发。
@@ -135,6 +141,8 @@ Codex 会话固定使用 OpenAI provider，并清除该子进程的自定义推�
 bun test
 ```
 
+CI 在每次推送和 Pull Request 上运行同一条命令。欢迎贡献，规则见 [CONTRIBUTING.md](CONTRIBUTING.md)：不加依赖、不碰凭据、每个协议改动都要有测试。
+
 测试使用模拟的协议对端，不消耗账号额度。覆盖 ACP 多轮会话、单次授权、取消、Codex 提前完成的竞态、网关请求校验、流式、取消、会话复用与分支回退，以及 MCP 全链路：工具调用挂起 → 结果回灌 → 同回合续接。
 
 会接触真实 Magpie 或真实账号的脚本：
@@ -144,7 +152,7 @@ node test/page-contract.mjs <magpie地址> <web key>              # 页面文档
 node test/browser-check.mjs <magpie地址> <web key> <chrome路径>  # 页面在 Magpie 沙箱框架内到达 ready
 node test/gateway-tools.mjs <网关地址> <key>                    # 经网关的两段式工具往返
 bun test/real-tools-probe.mjs [模型]                            # 对真实 CLI 跑工具往返（消耗额度）
-bun test/real-reuse-probe.mjs <项目路径> [模型]                  # 同一对话的两轮复用（消耗额度）
+bun test/real-reuse-probe.mjs [模型]                            # 同一对话的两轮复用（消耗额度）
 ```
 
 目录说明：

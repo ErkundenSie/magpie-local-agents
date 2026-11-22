@@ -1,5 +1,11 @@
 # magpie-local-agents
 
+[![test](https://github.com/ErkundenSie/magpie-local-agents/actions/workflows/test.yml/badge.svg)](https://github.com/ErkundenSie/magpie-local-agents/actions/workflows/test.yml)
+[![license: MIT](https://img.shields.io/github/license/ErkundenSie/magpie-local-agents)](LICENSE)
+[![Magpie](https://img.shields.io/badge/magpie-%E2%89%A50.1.4660-7c3aed)](https://usemagpie.ai)
+[![runs on Bun](https://img.shields.io/badge/runs%20on-Bun-f472b6)](https://bun.sh)
+[![no dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)](package.json)
+
 Use the coding CLIs you are already signed in to — **Codex, Claude Code, Gemini CLI, Antigravity, Grok Build** — inside [Magpie](https://usemagpie.ai), and expose them through the Magpie gateway as a normal OpenAI-compatible provider.
 
 The plugin drives each CLI as a child process over its own protocol (Codex App Server or ACP) and lets the CLI talk to its vendor with its own login. It never reads, stores, or refreshes subscription tokens, and it never routes a subscription through an API relay.
@@ -137,6 +143,8 @@ The plugin does not read or manage `auth.json`, refresh tokens, or rewrite any C
 bun test
 ```
 
+CI runs the same command on every push and pull request. Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the rules that matter here (no dependencies, no credentials, a test for every protocol change).
+
 The suite uses simulated protocol peers, so it spends no account quota. It covers ACP multi-turn sessions, single-shot approvals, cancellation, the Codex early-completion race, gateway request validation, streaming, cancellation, session reuse with branch fallback, and the full MCP path: tool call parked, result returned, turn resumed.
 
 Scripts that touch a real Magpie or a real account:
@@ -146,7 +154,7 @@ node test/page-contract.mjs <magpie-url> <web-key>     # page document, bootstra
 node test/browser-check.mjs <magpie-url> <web-key> <chrome-path>   # page reaches "ready" inside Magpie's frame
 node test/gateway-tools.mjs <gateway-url> <key>        # two-leg tool round-trip through the gateway
 bun test/real-tools-probe.mjs [model]                  # same round-trip against a real CLI (uses quota)
-bun test/real-reuse-probe.mjs <project-path> [model]   # two turns of one conversation (uses quota)
+bun test/real-reuse-probe.mjs [model]                  # two turns of one conversation (uses quota)
 ```
 
 Layout:
