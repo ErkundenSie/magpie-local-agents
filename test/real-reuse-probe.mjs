@@ -1,6 +1,9 @@
 // Two turns of one conversation against a real CLI: the second must reuse the
 // live session instead of cold-starting. Costs a little account quota.
-const [root, model = 'codex-default'] = process.argv.slice(2);
+import { fileURLToPath } from 'node:url';
+
+const [given, model = 'codex-default'] = process.argv.slice(2);
+const root = given ?? fileURLToPath(new URL('..', import.meta.url)).replace(/[\\/]$/, '');
 const { providerHooks } = await import(`file:///${root}/lib/provider.mjs`);
 
 const hooks = providerHooks(root, {});

@@ -1,8 +1,10 @@
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = 'D:/MyWin/Documents/MyCode/magpie-local-agents';
+// The project root is this file's parent, so nothing here is machine-specific.
+const root = fileURLToPath(new URL('..', import.meta.url)).replace(/[\\/]$/, '');
 const MODEL = process.argv[2] ?? 'codex-default';
 const { providerHooks } = await import(`file:///${root}/lib/provider.mjs`);
 const { ToolBridge } = await import(`file:///${root}/lib/tool-bridge.mjs`);
