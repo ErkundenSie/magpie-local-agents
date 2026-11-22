@@ -69,12 +69,33 @@ test('ACP cancellation reaches the subprocess and settles the pending request', 
   }
 });
 
+test('a cancelled ACP turn leaves the session usable for the next one', async () => {
+  const events = [];
+  const session = new AgentSession('grok', {
+    file: process.execPath,
+    args: [fileURLToPath(new URL('fixture.mjs', import.meta.url)), 'grok', 'cancelled'],
+    cwd: process.cwd(), env: process.env,
+  }, (event) => events.push(event));
+  try {
+    await session.start();
+    expect(await session.prompt('wait')).toBe('cancelled');
+    // The same CLI process answers the next turn instead of looking dead.
+    expect(await session.prompt('probe')).toBe('end_turn');
+  } finally {
+    session.close();
+  }
+});
+
 const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 const image = { mimeType: 'image/png', data: png };
 
 test('ACP sends images as base64 content blocks next to the text', async () => {
   const events = [];
-  const session = fixture('gemini', (event) => events.push(event));
+  const session = new AgentSession('gemini', {
+    file: process.execPath,
+    args: [fileURLToPath(new URL('fixture.mjs', import.meta.url)), 'gemini', 'object-image'],
+    cwd: process.cwd(), env: process.env,
+  }, (event) => events.push(event));
   try {
     await session.start();
     expect(await session.prompt('probe', [image])).toBe('end_turn');

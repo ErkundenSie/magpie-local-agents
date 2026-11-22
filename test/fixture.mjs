@@ -13,7 +13,7 @@ for await (const line of lines) {
   switch (method) {
     case 'initialize': reply(id, native
       ? { userAgent: 'fixture' }
-      : { protocolVersion: 1, promptCapabilities: { image: process.argv[3] !== 'no-image' } }); break;
+      : { protocolVersion: 1, promptCapabilities: { image: process.argv[3] === 'object-image' ? { supported: true } : process.argv[3] !== 'no-image' } }); break;
     case 'initialized': break;
     case 'config/read': reply(id, { config: { model_provider: 'openai', openai_base_url: '' } }); break;
     case 'session/new': reply(id, { sessionId: 'acp-session', configOptions: [
@@ -60,7 +60,13 @@ for await (const line of lines) {
         reply(id, { stopReason: 'end_turn' });
         break;
       }
-      if (first === 'wait') break;
+      if (first === 'wait') {
+        if (process.argv[3] === 'cancelled') {
+          reply(id, { stopReason: 'cancelled' });
+          break;
+        }
+        break;
+      }
       send({ id: `approve-${id}`, method: 'session/request_permission', params: {
         sessionId: 'acp-session', toolCall: { title: 'Read the fixture' }, options: [
           { optionId: 'yes', name: 'Allow once', kind: 'allow_once' },
@@ -71,7 +77,14 @@ for await (const line of lines) {
       approvals.set(`approve-${id}`, { id, turn });
       break;
     }
-    case 'session/cancel': process.exit(0); break;
+    case 'session/cancel':
+      if (process.argv[3] === 'cancelled') {
+        // The real Grok closes the prompt this way and leaves the process alive.
+        reply(id, { stopReason: 'cancelled' });
+        break;
+      }
+      process.exit(0);
+      break;
     default: {
       const approval = approvals.get(id);
       if (approval) {

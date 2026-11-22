@@ -1,6 +1,6 @@
 {
   "name": "magpie-local-agents",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "description": "Use the coding CLIs you are already signed in to as Magpie page agents and as an OpenAI-compatible provider",
   "license": "MIT",
   "author": "ErkundenSie",

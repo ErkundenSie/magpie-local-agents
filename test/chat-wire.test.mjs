@@ -221,6 +221,34 @@ test('rejects startup failures and errors an open stream after a runner failure'
   await assert.rejects(reader.read(), { message: error.message });
 });
 
+test('cancelling the reader closes a stream without reporting a transport error', async () => {
+  const request = parsed({ stream: true });
+  const running = Promise.withResolvers();
+  let streamError;
+  const response = await serveChat(request, ({ signal, emit }) => {
+    emit('partial');
+    running.resolve(signal);
+    return new Promise(() => {});
+  }, undefined, { onStreamError: (info) => { streamError = info; } });
+  const signal = await running.promise;
+  await response.body.cancel();
+  await Promise.resolve();
+  assert.equal(streamError.cancelled, true);
+  assert.equal(signal.aborted, true);
+  assert.equal((await response.body.getReader().read()).done, true);
+});
+
+test('keeps the text a CLI produced before it stopped the turn itself', async () => {
+  const response = await serveChat(parsed(), runText('half an answer', 'cancelled'));
+  const body = await response.json();
+  assert.equal(body.choices[0].message.content, 'half an answer');
+  assert.equal(body.choices[0].finish_reason, 'stop');
+
+  // With nothing produced there is nothing to keep, so it stays an error.
+  await assert.rejects(serveChat(parsed(), runText('', 'cancelled')), /cancelled/);
+  await assert.rejects(serveChat(parsed(), runText('', 'interrupted')), /cancelled/);
+});
+
 test('propagates fetch abort before stream commitment and reader cancellation after it', async () => {
   const outer = new AbortController();
   const started = Promise.withResolvers();
