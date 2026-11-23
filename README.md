@@ -24,14 +24,22 @@ There are no npm dependencies and no build step.
 
 ## Install
 
-From a checkout of this repository:
+From GitHub (recommended). Magpie's bundled Bun clones the repository, so `git` must be on `PATH`. `magpie plugin update` then picks up new commits on the default branch:
 
 ```powershell
-magpie plugin add 'D:\path\to\magpie-local-agents'
+magpie plugin add github:ErkundenSie/magpie-local-agents
 magpie plugin login local-cli   # registers the local CLIs as a provider; no API key needed
 ```
 
-You can also open **Settings → Plugins → Add plugin** in Magpie and enter the absolute path. After editing the source, toggle the plugin off and on to reload it.
+`ErkundenSie/magpie-local-agents` and `git+https://github.com/ErkundenSie/magpie-local-agents.git` install the same package. In Magpie, open **Settings → Plugins → Add plugin** and enter that spec. Pin a tag or commit with `#ref`, for example `github:ErkundenSie/magpie-local-agents#v0.10.0`; a pinned commit is not offered as an update.
+
+To work on a checkout instead, add the folder. Magpie loads it where it is and does not copy it:
+
+```powershell
+magpie plugin add 'D:\path\to\magpie-local-agents'
+```
+
+After editing that checkout, toggle the plugin off and on to reload it. A GitHub install is Magpie's own copy under its plugin directory; editing a separate clone does not change it.
 
 The page and gateway share a loopback port, `3496` by default. Set `MAGPIE_LOCAL_CLI_PORT` and restart Magpie if that port is taken.
 

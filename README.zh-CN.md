@@ -24,12 +24,22 @@
 
 ## 安装
 
+从 GitHub 安装（推荐）。Magpie 自带的 Bun 会克隆仓库，因此 `git` 需要在 `PATH` 上。之后用 `magpie plugin update` 更新到默认分支的新提交：
+
 ```powershell
-magpie plugin add 'D:\path\to\magpie-local-agents'
+magpie plugin add github:ErkundenSie/magpie-local-agents
 magpie plugin login local-cli   # 把本机 CLI 接入供应商列表，无需密钥
 ```
 
-也可以在 Magpie 的 **设置 → 插件 → 添加插件** 里填项目目录的绝对路径。修改源码后，把插件关闭再打开即可重载。
+`ErkundenSie/magpie-local-agents` 和 `git+https://github.com/ErkundenSie/magpie-local-agents.git` 安装的是同一个包。也可以在 Magpie 的 **设置 → 插件 → 添加插件** 里填上面的地址。要固定标签或提交，加上 `#ref`，例如 `github:ErkundenSie/magpie-local-agents#v0.10.0`；固定到某一提交后不会再提示更新。
+
+改源码时改成添加本地目录。Magpie 会就地加载，不会复制一份：
+
+```powershell
+magpie plugin add 'D:\path\to\magpie-local-agents'
+```
+
+修改这份检出后，把插件关闭再打开即可重载。从 GitHub 安装的是 Magpie 插件目录里的一份副本，改另一个克隆不会影响它。
 
 页面与网关共用回环端口，默认 `3496`。端口冲突时设置 `MAGPIE_LOCAL_CLI_PORT` 并重启 Magpie。
 
