@@ -1,5 +1,5 @@
 name: Feature request
-description: A capability the gateway or the page should have
+description: A capability the gateway should have
 labels: [enhancement]
 body:
   - type: markdown
@@ -29,7 +29,6 @@ body:
       options:
         - Gateway (translation, tools, sessions, usage)
         - A specific CLI adapter
-        - Page plugin UI
         - Installation or packaging
     validations:
       required: true

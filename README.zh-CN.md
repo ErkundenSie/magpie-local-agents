@@ -10,8 +10,7 @@
 
 插件把各家 CLI 当作子进程，用它们各自的协议（Codex App Server 或 ACP）驱动，由 CLI 用自己的登录向原厂请求。插件不把订阅包装成 API 流量转发。它唯一会读取的凭据是 Grok 的登录文件，且只用于下面的只读额度查询。
 
-- **页面插件**：在 Magpie 左侧选择 Agent 和工作区，直接对话。
-- **供应商**：在 **设置 → 供应商** 里显示为 `Local CLI`，任何 OpenAI 兼容客户端都能经网关调用 `local-cli/<agent>-<模型>`。
+它在 **设置 → 供应商** 里显示为 `Local CLI`，任何 OpenAI 兼容客户端都能经网关调用 `local-cli/<agent>-<模型>`。
 
 [English](README.md)
 
@@ -41,7 +40,7 @@ magpie plugin add 'D:\path\to\magpie-local-agents'
 
 修改这份检出后，把插件关闭再打开即可重载。从 GitHub 安装的是 Magpie 插件目录里的一份副本，改另一个克隆不会影响它。
 
-页面与网关共用回环端口，默认 `3496`。端口冲突时设置 `MAGPIE_LOCAL_CLI_PORT` 并重启 Magpie。
+本地工具桥接监听回环端口，默认 `3496`。端口冲突时设置 `MAGPIE_LOCAL_CLI_PORT` 并重启 Magpie。
 
 ## 作为供应商使用
 
@@ -128,14 +127,14 @@ CLI 自己报告的配额或限流（usage limit、rate limit、quota、HTTP 429
 
 ## 支持的 CLI
 
-| 页面选项 | 启动方式 | 准备工作 |
+| CLI | 启动方式 | 准备工作 |
 | --- | --- | --- |
 | OpenAI Codex | `codex app-server --listen stdio://` | 安装 OpenAI Codex 并在 CLI 或桌面端登录。Windows 还会查找 Microsoft Store 版 Codex Desktop 附带的程序。 |
 | Claude Code | `claude-agent-acp`，包装已有的 `claude` | 安装原生 Claude Code 并登录，另外安装 [Claude Agent ACP](https://github.com/agentclientprotocol/claude-agent-acp)，例如 `npm install -g @agentclientprotocol/claude-agent-acp`。 |
 | Antigravity CLI | `agy acp` | 安装 Google Antigravity CLI 并用 `agy` 登录。Gemini CLI 已停用并由 `agy` 取代，Google 这边用 Antigravity。 |
 | Grok Build | `grok agent --no-leader stdio` | 安装 xAI Grok Build 并运行 `grok login`。 |
 
-界面找到启动程序时显示「登录未验证」。启动 Codex 页面会话后，如果 Codex 明确报告已授权或要求登录，界面会更新状态。查询不请求刷新令牌。插件用绝对路径执行程序，绕过登录 shell 和 Magpie 注入 shell profile 的同名函数。
+插件用绝对路径执行程序，绕过登录 shell 和 Magpie 注入 shell profile 的同名函数。
 
 启动程序缺失或需要固定版本时，在项目根目录放 `.local-agents.json`，只写要覆盖的字段，路径请替换成本机实际位置：
 
@@ -152,10 +151,6 @@ CLI 自己报告的配额或限流（usage limit、rate limit、quota、HTTP 429
 
 `claude`、`antigravity` 与 `grok` 同理。Windows 上 `.exe` 直接运行；除 Claude 本体外，标准 npm `.cmd` 启动器会被解析出 JavaScript 入口交给 Node 执行。
 
-## 页面插件
-
-同一页面内，同一个 Agent 在同一工作区复用原生会话，支持实时文本、工具状态、单次审批与停止。工具与沙箱策略由各 CLI 执行。重置页面、换 Agent 或换工作区会启动新会话；页面连接关闭后结束子进程。页面尚未实现历史恢复、模型选择或原生提问表单。
-
 Codex 会话固定使用 OpenAI provider，并清除该子进程的自定义推理地址，让 Codex 按原生认证访问官方端点。其他 CLI 使用原生配置；插件会检查常见环境变量与配置文件，发现已知的自定义模型地址时给出提示。认证、企业策略、系统代理与 CLI 自带扩展仍由相应程序处理。
 
 插件不代管 `auth.json`、不刷新 token、不改写各家 CLI 的用户设置。Grok 的登录文件只用于上面的额度查询，从不写回。要还原路由，请在对应的 CLI 或 Magpie 里操作。某个订阅能否在某个 CLI 或 SDK 中使用，由该厂商的账号与产品规则决定。
@@ -168,13 +163,11 @@ bun test
 
 CI 在每次推送和 Pull Request 上运行同一条命令。欢迎贡献，规则见 [CONTRIBUTING.md](CONTRIBUTING.md)：不加依赖、凭据只用于 Grok 的只读额度查询、每个协议改动都要有测试。
 
-测试使用模拟的协议对端，不消耗账号额度。覆盖 ACP 多轮会话、单次授权、取消、Codex 提前完成的竞态、网关请求校验、流式、取消、会话复用与分支回退，以及 MCP 全链路：工具调用挂起 → 结果回灌 → 同回合续接。
+测试使用模拟的协议对端，不消耗账号额度。覆盖 ACP 多轮会话、不询问调用方就拒绝内置工具、调用方工具自动放行一次、Codex 只读临时线程、取消、Codex 提前完成的竞态、网关请求校验、流式、取消、会话复用与分支回退，以及 MCP 全链路：工具调用挂起 → 结果回灌 → 同回合续接。
 
 会接触真实 Magpie 或真实账号的脚本：
 
 ```bash
-node test/page-contract.mjs <magpie地址> <web key>              # 页面文档、引导文件与 WebSocket 握手
-node test/browser-check.mjs <magpie地址> <web key> <chrome路径>  # 页面在 Magpie 沙箱框架内到达 ready
 node test/gateway-tools.mjs <网关地址> <key>                    # 经网关的两段式工具往返
 bun test/real-tools-probe.mjs [模型]                            # 对真实 CLI 跑工具往返（消耗额度）
 bun test/real-reuse-probe.mjs [模型]                            # 同一对话的两轮复用（消耗额度）
@@ -184,7 +177,7 @@ bun test/real-reuse-probe.mjs [模型]                            # 同一对话
 
 | 路径 | 作用 |
 | --- | --- |
-| `index.mjs` | Magpie server 钩子：页面服务、引导文件、WebSocket、MCP 端点 |
+| `index.mjs` | Magpie server 钩子与回环 MCP 端点 |
 | `lib/provider.mjs` | 供应商钩子、会话池、请求路由、错误映射 |
 | `lib/chat-wire.mjs` | Chat Completions 解析、提示词渲染、SSE、工具调用编码 |
 | `lib/session.mjs` | Codex App Server 与 ACP 会话处理 |
@@ -192,11 +185,10 @@ bun test/real-reuse-probe.mjs [模型]                            # 同一对话
 | `lib/tool-bridge.mjs` | 把调用方工具变成 MCP 服务，挂起与续接回合 |
 | `lib/mcp-stdio.mjs` | CLI 启动的 stdio MCP 服务 |
 | `lib/empty-mcp.mjs` | 不提供任何工具的空壳 MCP 服务 |
-| `page/`、`app/` | 页面插件引导与界面 |
 
 ## 参考
 
-- [Magpie 插件文档](https://usemagpie.ai/docs/plugins)与 [Agent Console](https://github.com/magpie-community/plugins/tree/main/packages/agent-console)：页面插件、宿主与 Windows 子进程接入。
+- [Magpie 插件文档](https://usemagpie.ai/docs/plugins)：插件宿主与 Windows 子进程接入。
 - [BytePioneer-AI/codex-host](https://github.com/BytePioneer-AI/codex-host)的适配器划分与 [Grok stdio 模式](https://github.com/BytePioneer-AI/codex-host/blob/main/docs/harnesses/grok/permission-modes.md)。它不是运行依赖。
 - 协议参考：[Codex App Server](https://developers.openai.com/blog/codex-as-a-platform)、[ACP v1](https://agentclientprotocol.com/protocol/v1/overview)、[Antigravity CLI ACP](https://antigravity.google/docs/cli/acp)与[权限](https://antigravity.google/docs/permissions)、[Grok Build Agent 模式](https://github.com/xai-org/grok-build/blob/main/crates/codegen/xai-grok-pager/docs/user-guide/15-agent-mode.md)及其 [agent profile 工具字段](https://github.com/xai-org/grok-build/blob/main/crates/codegen/xai-grok-shell/README.md)。
 

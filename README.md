@@ -10,8 +10,7 @@ Use the coding CLIs you are already signed in to — **Codex, Claude Code, Antig
 
 The plugin drives each CLI as a child process over its own protocol (Codex App Server or ACP) and lets the CLI talk to its vendor with its own login. It never routes a subscription through an API relay. The only credential it ever reads is the Grok sign-in file, and only for the read-only quota check described below.
 
-- **Page plugin** — pick an agent and a workspace, then talk to it from Magpie's sidebar.
-- **Provider** — appears as `Local CLI` in **Settings → Providers**, so any OpenAI-compatible client can call `local-cli/<agent>-<model>` through the gateway.
+It appears as `Local CLI` in **Settings → Providers**, so any OpenAI-compatible client can call `local-cli/<agent>-<model>` through the gateway.
 
 [中文说明](README.zh-CN.md)
 
@@ -41,7 +40,7 @@ magpie plugin add 'D:\path\to\magpie-local-agents'
 
 After editing that checkout, toggle the plugin off and on to reload it. A GitHub install is Magpie's own copy under its plugin directory; editing a separate clone does not change it.
 
-The page and gateway share a loopback port, `3496` by default. Set `MAGPIE_LOCAL_CLI_PORT` and restart Magpie if that port is taken.
+The local tool bridge listens on loopback port `3496`. Set `MAGPIE_LOCAL_CLI_PORT` and restart Magpie if that port is taken.
 
 ## Using it as a provider
 
@@ -135,7 +134,7 @@ Limits: 2 MiB per request, 5 minutes per turn, 3 concurrent requests (429 beyond
 | Antigravity CLI | `agy acp` | Install Google Antigravity CLI and sign in with `agy`. Gemini CLI was retired in favour of `agy`, so Antigravity is the Google option. |
 | Grok Build | `grok agent --no-leader stdio` | Install xAI Grok Build and run `grok login`. |
 
-The UI marks detected launchers as sign-in unverified. When a Codex page session starts, the UI updates if Codex explicitly reports an account or requires sign-in. The check requests no token refresh. The plugin runs executables by absolute path without a login shell, so it bypasses shell-profile functions Magpie injects.
+The plugin runs executables by absolute path without a login shell, so it bypasses shell-profile functions Magpie injects.
 
 If a launcher is missing or you need a pinned version, put `.local-agents.json` in the project root. Include only the fields you want to override, and replace the paths with your own:
 
@@ -152,10 +151,6 @@ If a launcher is missing or you need a pinned version, put `.local-agents.json` 
 
 `claude`, `antigravity` and `grok` work the same way. On Windows, `.exe` files run directly, and a standard npm `.cmd` shim (for anything other than Claude itself) is resolved to its JavaScript entry point and run with Node.
 
-## Page plugin
-
-Within one page, an agent reuses its native session for the same workspace, with streamed text, tool status, one-shot approvals, and stop. Tool and sandbox policy are enforced by each CLI. Resetting the page, or switching agent or workspace, starts a new session; closing the page connection ends the child process. The page does not yet implement history restore, model selection, or native question forms.
-
 For Codex the plugin pins the OpenAI provider and clears any custom inference URL for that subprocess, so Codex uses its official endpoint through its own authentication. Other CLIs keep their native configuration; the plugin inspects common environment variables and config files and warns when a known custom model URL is set. Authentication, enterprise policy, system proxies, and CLI extensions remain with those programs.
 
 The plugin does not manage `auth.json`, refresh tokens, or rewrite any CLI's user settings. Grok's sign-in file is read only for the quota check above and never written back. To undo a routing change, do it in that CLI or in Magpie. Whether a given subscription may be used in a given CLI or SDK is decided by that vendor's account and product rules.
@@ -168,13 +163,11 @@ bun test
 
 CI runs the same command on every push and pull request. Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the rules that matter here (no dependencies, no credentials, a test for every protocol change).
 
-The suite uses simulated protocol peers, so it spends no account quota. It covers ACP multi-turn sessions, single-shot approvals, cancellation, the Codex early-completion race, gateway request validation, streaming, cancellation, session reuse with branch fallback, and the full MCP path: tool call parked, result returned, turn resumed.
+The suite uses simulated protocol peers, so it spends no account quota. It covers ACP multi-turn sessions, refusing a built-in tool without asking, allowing a caller tool once, a read-only ephemeral Codex thread, cancellation, the Codex early-completion race, gateway request validation, streaming, cancellation, session reuse with branch fallback, and the full MCP path: tool call parked, result returned, turn resumed.
 
 Scripts that touch a real Magpie or a real account:
 
 ```bash
-node test/page-contract.mjs <magpie-url> <web-key>     # page document, bootstrap, WebSocket handshake
-node test/browser-check.mjs <magpie-url> <web-key> <chrome-path>   # page reaches "ready" inside Magpie's frame
 node test/gateway-tools.mjs <gateway-url> <key>        # two-leg tool round-trip through the gateway
 bun test/real-tools-probe.mjs [model]                  # same round-trip against a real CLI (uses quota)
 bun test/real-reuse-probe.mjs [model]                  # two turns of one conversation (uses quota)
@@ -184,7 +177,7 @@ Layout:
 
 | Path | Purpose |
 | --- | --- |
-| `index.mjs` | Magpie server hook: page service, bootstrap file, WebSocket, MCP endpoint |
+| `index.mjs` | Magpie server hook and the loopback MCP endpoint |
 | `lib/provider.mjs` | Provider hooks, session pool, request routing, error mapping |
 | `lib/chat-wire.mjs` | Chat Completions parsing, prompt rendering, SSE, tool-call encoding |
 | `lib/session.mjs` | Codex App Server and ACP session handling |
@@ -192,11 +185,10 @@ Layout:
 | `lib/tool-bridge.mjs` | Turning caller tools into an MCP server, parking and resuming turns |
 | `lib/mcp-stdio.mjs` | The stdio MCP server the CLI spawns |
 | `lib/empty-mcp.mjs` | A stub MCP server that advertises no tools |
-| `page/`, `app/` | Page plugin bootstrap and its UI |
 
 ## References
 
-- [Magpie plugin docs](https://usemagpie.ai/docs/plugins) and [Agent Console](https://github.com/magpie-community/plugins/tree/main/packages/agent-console) for page plugins, the host, and Windows child processes.
+- [Magpie plugin docs](https://usemagpie.ai/docs/plugins) for the plugin host and Windows child processes.
 - [BytePioneer-AI/codex-host](https://github.com/BytePioneer-AI/codex-host) for the adapter split and [Grok stdio mode](https://github.com/BytePioneer-AI/codex-host/blob/main/docs/harnesses/grok/permission-modes.md). It is not a runtime dependency.
 - Protocol references: [Codex App Server](https://developers.openai.com/blog/codex-as-a-platform), [ACP v1](https://agentclientprotocol.com/protocol/v1/overview), [Antigravity CLI ACP](https://antigravity.google/docs/cli/acp) and [permissions](https://antigravity.google/docs/permissions), [Grok Build agent mode](https://github.com/xai-org/grok-build/blob/main/crates/codegen/xai-grok-pager/docs/user-guide/15-agent-mode.md) and its [agent profile tool fields](https://github.com/xai-org/grok-build/blob/main/crates/codegen/xai-grok-shell/README.md).
 

@@ -1,4 +1,3 @@
 .local-agents.json
-page/.runtime/
 node_modules/
 *.tgz

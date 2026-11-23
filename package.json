@@ -1,28 +1,22 @@
 {
   "name": "magpie-local-agents",
   "version": "0.10.0",
-  "description": "Use the coding CLIs you are already signed in to as Magpie page agents and as an OpenAI-compatible provider",
+  "description": "Use the coding CLIs you are already signed in to as an OpenAI-compatible Magpie provider",
   "license": "MIT",
   "author": "ErkundenSie",
   "type": "module",
   "main": "./index.mjs",
-  "files": ["index.mjs", "lib", "page/index.html", "page/boot.js", "app", "README.md", "README.zh-CN.md", "LICENSE"],
+  "files": ["index.mjs", "lib", "README.md", "README.zh-CN.md", "LICENSE"],
   "engines": { "magpie": ">=0.1.4660" },
   "scripts": { "test": "bun test" },
   "keywords": [
-    "magpie-plugin", "magpie-page", "magpie-provider", "acp", "agent-client-protocol",
+    "magpie-plugin", "magpie-provider", "acp", "agent-client-protocol",
     "codex", "claude-code", "antigravity", "grok", "local-llm", "openai-compatible"
   ],
   "repository": { "type": "git", "url": "git+https://github.com/ErkundenSie/magpie-local-agents.git" },
   "bugs": { "url": "https://github.com/ErkundenSie/magpie-local-agents/issues" },
   "homepage": "https://github.com/ErkundenSie/magpie-local-agents#readme",
   "magpie": {
-    "page": {
-      "title": "Local CLI",
-      "titles": { "zh": "Local CLI", "zh-TW": "Local CLI" },
-      "file": "page/index.html",
-      "keepAlive": true
-    },
     "permissions": []
   }
 }

@@ -4,6 +4,7 @@ const native = process.argv[2] === 'codex';
 let turns = 0;
 let currentModel;
 let currentEffort;
+let threadStart;
 const models = (process.argv[3] === 'catalog'
   ? ['agy-pro-low', 'agy-pro-high', 'agy-pro-max', 'agy-flash-low', 'agy-flash']
   : ['model-a', 'model-b']).map((value) => ({ value }));
@@ -40,12 +41,17 @@ for await (const line of lines) {
       reply(id, { configOptions: configs });
       break;
     }
-    case 'thread/start': reply(id, { thread: { id: 'native-thread' }, modelProvider: 'openai' }); break;
+    case 'thread/start':
+      threadStart = params;
+      reply(id, { thread: { id: 'native-thread' }, modelProvider: 'openai' });
+      break;
     case 'turn/start': {
       const turn = { id: `turn-${++turns}`, status: 'completed' };
       const first = params.input?.[0]?.text ?? '';
-      // A probe turn reports back the user-input item types it received.
-      const text = first.startsWith('probe')
+      // A thread-mode turn reports the isolation flags from thread/start.
+      const text = process.argv[3] === 'thread'
+        ? `sandbox:${threadStart?.sandbox} ephemeral:${threadStart?.ephemeral} approval:${threadStart?.approvalPolicy}`
+        : first.startsWith('probe')
         ? params.input.map((item) => item.type === 'image'
           ? `image:${String(item.url).slice(0, 22)}` : item.type).join(',') +
           (params.model ? ` model:${params.model}` : '') + (params.effort ? ` effort:${params.effort}` : '')
@@ -95,7 +101,9 @@ for await (const line of lines) {
         break;
       }
       send({ id: `approve-${id}`, method: 'session/request_permission', params: {
-        sessionId: 'acp-session', toolCall: { title: 'Read the fixture' }, options: [
+        sessionId: 'acp-session',
+        toolCall: process.argv[3] === 'allow' ? { name: 'lookup', title: 'lookup' } : { title: 'Read the fixture' },
+        options: [
           { optionId: 'yes', name: 'Allow once', kind: 'allow_once' },
           { optionId: 'no', name: 'Decline', kind: 'reject_once' },
           { optionId: 'always', name: 'Allow always', kind: 'allow_always' },

@@ -14,22 +14,15 @@ function fixture(agent, emit) {
   }, emit);
 }
 
-test('ACP keeps session context and submits only an explicit one-shot decision', async () => {
+test('a built-in tool call is refused without asking the caller', async () => {
   const events = [];
-  const session = fixture('claude', (event) => {
-    events.push(event);
-    if (event.type === 'permission') {
-      session.decide(event.id, 'always');
-      session.decide(event.id, 'yes');
-    }
-  });
+  const session = fixture('claude', (event) => events.push(event));
   try {
     await session.start();
     expect(await session.prompt('first')).toBe('end_turn');
     expect(await session.prompt('second')).toBe('end_turn');
-    expect(events.filter(({ type }) => type === 'permission').map(({ options }) => options.map(({ id }) => id)))
-      .toEqual([['yes', 'no'], ['yes', 'no']]);
-    expect(events.filter(({ type }) => type === 'text').map(({ text }) => text)).toEqual(['回合 1: yes', '回合 2: yes']);
+    expect(events.filter(({ type }) => type === 'permission')).toEqual([]);
+    expect(events.filter(({ type }) => type === 'text').map(({ text }) => text)).toEqual(['回合 1: no', '回合 2: no']);
     expect(events.filter(({ type }) => type === 'session')).toHaveLength(1);
     expect(events.filter(({ type }) => type === 'usage').map(({ usage }) => usage)).toEqual([{
       prompt_tokens: 30, completion_tokens: 10, total_tokens: 40,
@@ -41,12 +34,46 @@ test('ACP keeps session context and submits only an explicit one-shot decision',
   }
 });
 
+test('Codex starts a read-only ephemeral thread', async () => {
+  const events = [];
+  const session = new AgentSession('codex', {
+    file: process.execPath,
+    args: [fileURLToPath(new URL('fixture.mjs', import.meta.url)), 'codex', 'thread'],
+    cwd: process.cwd(), env: process.env,
+  }, (event) => events.push(event));
+  try {
+    await session.start();
+    expect(await session.prompt('hello')).toBe('completed');
+    expect(events.find((event) => event.type === 'text')?.text)
+      .toBe('sandbox:read-only ephemeral:true approval:never');
+  } finally {
+    session.close();
+  }
+});
+
+test('a caller tool is allowed once without asking', async () => {
+  const events = [];
+  const session = new AgentSession('claude', {
+    file: process.execPath,
+    args: [fileURLToPath(new URL('fixture.mjs', import.meta.url)), 'claude', 'allow'],
+    cwd: process.cwd(), env: process.env,
+  }, (event) => events.push(event), {
+    clientTools: true,
+    tools: [{ type: 'function', function: { name: 'lookup' } }],
+  });
+  try {
+    await session.start();
+    expect(await session.prompt('first')).toBe('end_turn');
+    expect(events.filter(({ type }) => type === 'permission')).toEqual([]);
+    expect(events.filter(({ type }) => type === 'text').map(({ text }) => text)).toEqual(['回合 1: yes']);
+  } finally {
+    session.close();
+  }
+});
+
 test.each([['grok', 3], ['antigravity', undefined]])('%s reports completed turn usage with cache details', async (agent, cacheWrite) => {
   const events = [];
-  const session = fixture(agent, (event) => {
-    events.push(event);
-    if (event.type === 'permission') session.decide(event.id, 'yes');
-  });
+  const session = fixture(agent, (event) => events.push(event));
   try {
     await session.start();
     await session.prompt('first');
@@ -64,7 +91,6 @@ test.each([['grok', 3], ['antigravity', undefined]])('%s reports completed turn 
 test('Claude reports its plan windows over ACP during a turn', async () => {
   const limits = [];
   const session = fixture('claude', (event) => {
-    if (event.type === 'permission') session.decide(event.id, 'yes');
     if (event.type === 'claude_limit') limits.push(event.limit);
   });
   try {
@@ -72,20 +98,6 @@ test('Claude reports its plan windows over ACP during a turn', async () => {
     await session.prompt('first');
     expect(limits).toHaveLength(1);
     expect(Object.keys(limits[0])).toEqual(['five_hour', 'seven_day']);
-  } finally {
-    session.close();
-  }
-});
-
-test('Codex reports account status without sending account details to the page', async () => {
-  const account = Promise.withResolvers();
-  const session = fixture('codex', (event) => {
-    if (event.type === 'account_status') account.resolve(event);
-  });
-  try {
-    await session.start();
-    await session.prompt('hello');
-    expect(await account.promise).toEqual({ type: 'account_status', agent: 'codex', status: 'authorized' });
   } finally {
     session.close();
   }
