@@ -30,7 +30,7 @@ magpie plugin add github:ErkundenSie/magpie-local-agents
 magpie plugin login local-cli   # registers the local CLIs as a provider; no API key needed
 ```
 
-`ErkundenSie/magpie-local-agents` and `git+https://github.com/ErkundenSie/magpie-local-agents.git` install the same package. In Magpie, open **Settings → Plugins → Add plugin** and enter that spec. Pin a tag or commit with `#ref`, for example `github:ErkundenSie/magpie-local-agents#v0.10.0`; a pinned commit is not offered as an update.
+`ErkundenSie/magpie-local-agents` and `git+https://github.com/ErkundenSie/magpie-local-agents.git` install the same package. In Magpie, open **Settings → Plugins → Add plugin** and enter that spec. To stay on one revision, append `#` and a commit, for example `github:ErkundenSie/magpie-local-agents#0d572ec`. A pinned commit is not offered as an update. This repository does not publish version tags, so `#v0.10.0` is not a valid ref.
 
 To work on a checkout instead, add the folder. Magpie loads it where it is and does not copy it:
 

@@ -30,7 +30,7 @@ magpie plugin add github:ErkundenSie/magpie-local-agents
 magpie plugin login local-cli   # 把本机 CLI 接入供应商列表，无需密钥
 ```
 
-`ErkundenSie/magpie-local-agents` 和 `git+https://github.com/ErkundenSie/magpie-local-agents.git` 安装的是同一个包。也可以在 Magpie 的 **设置 → 插件 → 添加插件** 里填上面的地址。要固定标签或提交，加上 `#ref`，例如 `github:ErkundenSie/magpie-local-agents#v0.10.0`；固定到某一提交后不会再提示更新。
+`ErkundenSie/magpie-local-agents` 和 `git+https://github.com/ErkundenSie/magpie-local-agents.git` 安装的是同一个包。也可以在 Magpie 的 **设置 → 插件 → 添加插件** 里填上面的地址。要固定在某一版，在后面加上 `#` 和提交号，例如 `github:ErkundenSie/magpie-local-agents#0d572ec`。固定到某一提交后不会再提示更新。本仓库没有发布版本标签，`#v0.10.0` 不是有效地址。
 
 改源码时改成添加本地目录。Magpie 会就地加载，不会复制一份：
 
