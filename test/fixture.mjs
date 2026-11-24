@@ -86,7 +86,7 @@ for await (const line of lines) {
         break;
       }
       // A text-only retry (the plugin's own nudge) is answered normally.
-      if (first.includes('Do not call any tool')) {
+      if (process.argv[3] === 'cancelled' && first.includes('Do not call any tool')) {
         send({ method: 'session/update', params: { sessionId: 'acp-session', update: {
           sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'retried as text' },
         } } });
@@ -100,16 +100,21 @@ for await (const line of lines) {
         }
         break;
       }
+      const agyMode = process.argv[3];
+      const agyPermission = ['agy-allow', 'agy-denied', 'agy-still-empty'].includes(agyMode);
+      const toolCall = agyPermission
+        ? { name: agyMode === 'agy-allow' || turn > 1 ? 'mcp_local_cli_tools_lookup' : 'read_file' }
+        : process.argv[3] === 'allow' ? { name: 'lookup', title: 'lookup' } : { title: 'Read the fixture' };
       send({ id: `approve-${id}`, method: 'session/request_permission', params: {
         sessionId: 'acp-session',
-        toolCall: process.argv[3] === 'allow' ? { name: 'lookup', title: 'lookup' } : { title: 'Read the fixture' },
+        toolCall,
         options: [
           { optionId: 'yes', name: 'Allow once', kind: 'allow_once' },
           { optionId: 'no', name: 'Decline', kind: 'reject_once' },
           { optionId: 'always', name: 'Allow always', kind: 'allow_always' },
         ],
       } });
-      approvals.set(`approve-${id}`, { id, turn });
+      approvals.set(`approve-${id}`, { id, turn, agyMode, first });
       break;
     }
     case 'session/cancel':
@@ -124,6 +129,19 @@ for await (const line of lines) {
       const approval = approvals.get(id);
       if (approval) {
         approvals.delete(id);
+        const option = result?.outcome?.optionId;
+        if (['agy-denied', 'agy-still-empty'].includes(approval.agyMode)) {
+          const first = approval.turn === 1;
+          const recovered = !first && option === 'no' &&
+            approval.first.includes('Reply with text only.') && !approval.first.includes('original question') &&
+            approval.agyMode === 'agy-denied';
+          send({ method: 'session/update', params: { sessionId: 'acp-session', update: {
+            sessionUpdate: recovered ? 'agent_message_chunk' : 'agent_thought_chunk',
+            content: { type: 'text', text: recovered ? 'recovered as text' : `thought after ${option}` },
+          } } });
+          reply(approval.id, { stopReason: 'end_turn' });
+          break;
+        }
         send({ method: 'session/update', params: { sessionId: 'acp-session', update: {
           sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: `回合 ${approval.turn}: ${result?.outcome?.optionId}` },
         } } });

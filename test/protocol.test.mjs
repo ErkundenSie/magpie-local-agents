@@ -139,6 +139,57 @@ test('agy advertises its native variants and routes each effort while keeping su
   }
 }, 30000);
 
+function agyFixture(mode, events) {
+  return new AgentSession('antigravity', {
+    file: process.execPath,
+    args: [fileURLToPath(new URL('fixture.mjs', import.meta.url)), 'antigravity', mode],
+    cwd: process.cwd(), env: process.env,
+  }, (event) => events.push(event), {
+    clientTools: true,
+    tools: [{ type: 'function', function: { name: 'lookup' } }],
+  });
+}
+
+test('Antigravity allows the caller tool under its ACP name', async () => {
+  const events = [];
+  const session = agyFixture('agy-allow', events);
+  try {
+    await session.start();
+    expect(await session.prompt('original question')).toBe('end_turn');
+    expect(events.find((event) => event.type === 'text')?.text).toBe('回合 1: yes');
+  } finally {
+    session.close();
+  }
+});
+
+test('Antigravity retries a denied tool that ended with only thoughts, without allowing tools on retry', async () => {
+  const events = [];
+  const session = agyFixture('agy-denied', events);
+  try {
+    await session.start();
+    expect(await session.prompt('original question')).toBe('end_turn');
+    expect(events.filter((event) => event.type === 'thought').map(({ text }) => text)).toEqual(['thought after no']);
+    expect(events.find((event) => event.type === 'text')?.text).toBe('recovered as text');
+    expect(session.acceptsAgyToolCalls).toBe(false);
+  } finally {
+    session.close();
+  }
+});
+
+test('Antigravity reports an error if the text-only retry also ends without an answer', async () => {
+  const events = [];
+  const session = agyFixture('agy-still-empty', events);
+  try {
+    await session.start();
+    const [result] = await Promise.allSettled([session.prompt('original question')]);
+    expect(result.status).toBe('rejected');
+    expect(result.reason?.message).toBe('Antigravity did not produce a reply after a tool call was denied.');
+    expect(events.filter((event) => event.type === 'thought')).toHaveLength(2);
+  } finally {
+    session.close();
+  }
+});
+
 test('ACP cancellation reaches the subprocess and settles the pending request', async () => {
   const session = fixture('claude', () => {});
   try {

@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { callerToolOf, exposeTools, isCatalogSearch, ToolBridge } from '../lib/tool-bridge.mjs';
+import { callerToolOf, exposeTools, isAgyCallerTool, isCatalogSearch, ToolBridge } from '../lib/tool-bridge.mjs';
 import { gatewayProfile } from '../lib/launch.mjs';
 
 const ssh = {
@@ -64,6 +64,16 @@ test('permission matching accepts the catalog key and a use_tool argument', () =
   expect(callerToolOf({ name: 'use_tool', rawInput: { tool_name: 'grep' } }, tools)).toBeNull();
   expect(isCatalogSearch({ name: 'search_tool' })).toBe(true);
   expect(isCatalogSearch({ name: 'grep' })).toBe(false);
+});
+
+test('Antigravity ACP grants permission only for the exact namespaced caller tool', () => {
+  const tools = [{ type: 'function', function: { name: 'docs__lookup-plan' } }];
+  const name = 'mcp_local_cli_tools_docs_lookup-plan';
+  expect(isAgyCallerTool({ name, title: `Run ${name}` }, tools)).toBe(true);
+  expect(isAgyCallerTool({ name }, [])).toBe(false);
+  expect(isAgyCallerTool({ name: 'mcp_other_tools_docs_lookup-plan' }, tools)).toBe(false);
+  expect(isAgyCallerTool({ name: `${name}_extra` }, tools)).toBe(false);
+  expect(isAgyCallerTool({ name: 'run_command', title: `Run ${name}`, rawInput: { tool_name: name } }, tools)).toBe(false);
 });
 
 test('the gateway profile hides the shell but keeps catalog meta-tools when the caller has tools', () => {
