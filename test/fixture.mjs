@@ -6,7 +6,7 @@ let currentModel;
 let currentEffort;
 let threadStart;
 const models = (process.argv[3] === 'catalog'
-  ? ['agy-pro-low', 'agy-pro-high', 'agy-pro-max', 'agy-flash-low', 'agy-flash']
+  ? ['agy-pro-low', 'agy-pro-high', 'agy-pro-max', 'agy-flash-low', 'agy-flash', 'gemini-4-neon-high']
   : ['model-a', 'model-b']).map((value) => ({ value }));
 const send = (message) => process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', ...message })}\n`);
 const reply = (id, result) => send({ id, result });

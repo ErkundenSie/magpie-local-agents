@@ -111,7 +111,10 @@ test('agy advertises its native variants and routes each effort while keeping su
   try {
     const models = await hooks.provider.models(null, { auth: true });
     expect(Object.keys(models['antigravity-agy-pro'].variants)).toEqual(['low', 'high', 'max']);
-    expect(models['antigravity-agy-pro-low']).toBeDefined();
+    expect(models['antigravity-agy-pro-low'].limit).toEqual({ context: 128_000, output: 16_384 });
+    expect(models['antigravity-agy-pro'].limit).toEqual({ context: 128_000, output: 16_384 });
+    expect(models['antigravity-default'].limit).toEqual({ context: 128_000, output: 16_384 });
+    expect(models['antigravity-gemini-4-neon-high'].limit).toEqual({ context: 512_000, output: 16_384 });
     expect(Object.keys(models['antigravity-agy-flash'].variants)).toEqual(['low', 'medium', 'high']);
     expect(models['antigravity-agy-pro-high'].variants).toBeUndefined();
     const loader = await hooks.auth.loader(async () => ({ key: 'local-cli-linked' }));

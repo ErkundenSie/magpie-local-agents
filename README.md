@@ -56,6 +56,13 @@ Models are named `local-cli/<agent>-<native model>`. An agent that reports no mo
 
 Point any OpenAI-compatible client at the Magpie gateway (default `http://127.0.0.1:3425/v1`) with a gateway API key, then select one of those model names. Magpie translates between Chat Completions, Responses, and Anthropic Messages, so clients such as Claude Code or Codex work unmodified.
 
+### Context and token limits
+
+- The Magpie model catalog reports a context window per model. Codex and Grok Build use the CLI's cached default window when available; known Antigravity and Claude Code models use model-specific budgets.
+- Each `CLI default` alias uses the smallest window among that CLI's discovered models. If discovery finds none, or a model's limit is unknown, the fallback is 128,000 tokens.
+- The catalog reports 16,384 output tokens as a fallback budget, not an enforced output cap. The bridge does not forward `max_tokens` to native CLIs. It does not declare a separate input-token limit, because the available window is shared with history, prompts, tools, and output.
+- The gateway adapter's 2 MiB JSON request and 2 MiB rendered transcript limits are separate byte limits; a large context window does not override them.
+
 ## What the gateway supports
 
 ### Client tools, passed through natively

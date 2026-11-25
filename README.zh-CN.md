@@ -56,6 +56,13 @@ magpie plugin add 'D:\path\to\magpie-local-agents'
 
 把任何 OpenAI 兼容客户端指向 Magpie 网关（默认 `http://127.0.0.1:3425/v1`），填入网关页面生成的 API key，再选上面的模型名。Chat Completions、Responses 与 Anthropic Messages 之间的转换由 Magpie 负责，因此 Claude Code、Codex 这类客户端也能直接用。
 
+### 上下文与 Token 限制
+
+- Magpie 模型目录按型号声明上下文窗口。Codex 和 Grok Build 优先读取各自 CLI 缓存的默认窗口；已知的 Antigravity 和 Claude Code 模型按型号设置。
+- `CLI default` 别名使用该 CLI 已发现模型中的最小窗口。未发现模型或模型窗口未知时，回退值为 128,000 tokens。
+- 目录中的 16,384 输出 tokens 是备用预算，不是强制上限。桥接层不把 `max_tokens` 转发给原生 CLI；也不单独声明输入 token 上限，因为上下文还要容纳历史、提示词、工具和输出。
+- 网关适配器的 JSON 请求和渲染后文本各自仍有 2 MiB 限制。这是独立的字节限制，不会随模型上下文变大。
+
 ## 网关能力
 
 ### 客户端工具原生透传
